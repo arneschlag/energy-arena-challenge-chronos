@@ -1,112 +1,148 @@
-# Daten-Pipeline — Day-Ahead-Lastprognose (DE-LU)
+# Day-Ahead-Lastprognose DE-LU — Chronos-2-Pipeline
 
-Schlanke Lade-/Aufbereitungsskripte für die Forschungsfragen (Chronos-2 / Chronos-X
-vs. ENTSO-E-Benchmark). Nur **Daten** — kein Modelltraining, kein Submit.
+Vollautomatische Day-ahead-Lastprognose für die **DE-LU-Gebotszone** mit Amazon
+**Chronos-2**: holt selbst alle Daten (Wetter, ENTSO-E-Last, SMARD-Markt), erstellt
+täglich die Prognose und reicht sie bei der **Energy Arena** ein. Man braucht nur
+einen **GPU-Docker-Container (AMD oder NVIDIA)** und **API-Keys** — der Rest läuft
+von allein.
 
-## Drei Datenquellen
+---
 
-| # | Quelle | Modul(e) | Ausgabe unter `data/` |
-|---|--------|----------|-----------------------|
-| 1 | **Wetter je H3-Zelle** (224 Zellen), Punkt + Ensemble | `weather.py`, `aggregate.py` | `historical/`, `historical_ens/`, `weather_zone/{pop,centroid}/` |
-| 2 | **Markt je ÜNB-Zone** (Preis/Solar/Wind/Residual/Last) | `loads.py`, `market.py` | `loads/`, `load_forecast/`, `features/aux_*/` |
-| 3 | **Gesamt DE-LU** (aggregiert + eine Zelle) | `loads.py`, `market.py`, `aggregate.py` | dieselben Ordner, Gebiet `de_lu` |
+## 🚀 Schnellstart — alles automatisch (Windows & Linux)
 
-Gebiete überall: die 4 Regelzonen `50hertz, tennet, amprion, transnetbw` + die
-kombinierte Gebotszone `de_lu` + **Luxemburg `lu` als eigene Reihe** (siehe unten).
+### Voraussetzungen
+- **Docker** inkl. Docker Compose. Unter **Windows**: *Docker Desktop* mit WSL2-Backend.
+- **Eine GPU** (empfohlen):
+  - **NVIDIA** — aktueller Treiber; Linux: *NVIDIA Container Toolkit*, Windows: Docker Desktop + WSL2 genügt.
+  - **AMD** — ROCm-fähige GPU unter **Linux** (AMD-GPU-Passthrough unter Windows wird nicht unterstützt).
+  - **Ohne GPU** läuft es auf CPU (`DEVICE=cpu` in `.env`), nur deutlich langsamer.
+- **ENTSO-E-API-Key** (kostenlos): https://transparency.entsoe.eu → *Account Settings → Web Api Security Token*.
 
-## Wetter-Aggregation: zwei Methoden
+### In 3 Schritten
 
-Zell-Wetter → Zonen-Wetter auf zwei Arten, damit ihr Effekt vergleichbar ist:
+**1) Repo holen und `.env` anlegen**
 
-- **pop** — bevölkerungsgewichtetes Mittel über alle Zellen des Gebiets (aktuell).
-- **centroid** — nur die Repräsentativ-Zelle (Zelle am bevölkerungsgewichteten
-  Schwerpunkt, `grid.centroid_cell`).
-
-`aggregate.analyse_diff()` quantifiziert den Unterschied (MAE/RMSE/Korrelation je
-Gebiet & Variable) → `data/analysis/weather_agg_diff.csv`. (Beispiel: T2m-Korr
-≈ 0,98–0,99, Wind deutlich niedriger ≈ 0,80.)
-
-## Luxemburg
-
-`DE_LU` ist **eine** ENTSO-E-Gebotszone; Luxemburg hat keine eigene Zone. `de_lu`
-Ist-Last und Preis (aus ENTSO-E `DE_LU`) enthalten Luxemburg also implizit — die
-Ground-Truth des Gesamtmarkts ist vollständig vorhanden.
-
-`loads.reconcile_delu()` misst empirisch `de_lu − Σ(4 Zonen)`
-(→ `data/analysis/delu_reconciliation.csv`): in der aktuellen Historie ein
-**stabiler Offset von ~544 MW (Median, +1,0 %)** — das ist gerade die
-Luxemburg-Last. Die Feature-Seite der Zonen (Wetterzellen + Solar/Wind = Summe der
-4 dt. ÜNB) ist bewusst Deutschland-only.
-
-### Luxemburg als eigene Reihe (`lu`)
-
-Luxemburg wird zusätzlich als **eigenständiges Gebiet** geführt:
-
-- **Wetter**: eigene H3-Zelle `841fa3dffffffff` (Landes-Schwerpunkt, 49,82 N / 6,13 O),
-  konfiguriert in `config.LU_CELL`. `weather.py` lädt sie (Punkt + Ensemble) mit;
-  `aggregate.py` erzeugt `weather_zone/{pop,centroid}/lu.csv` (eine Zelle ⇒ pop == centroid).
-- **Last (Ziel)**: ENTSO-E `LU` (Creos), viertelstündlich ab 2015 — direkt via
-  `loads.py` → `data/loads/lu_*.csv` + `load_forecast/lu_*.csv`. Zusätzlich als
-  Kontrolle die **abgeleitete** Reihe `de_lu − Σ(4 Zonen)` → `data/loads/lu_derived_*.csv`.
-- **Preis**: identisch zum DE-LU-Day-ahead → `features/aux_price/lu.csv`.
-- **Solar/Wind/Residual**: SMARD kennt keine LU-Region ⇒ bewusst **weggelassen**.
-
-## Setup & Nutzung
-
+Linux / macOS:
 ```bash
-pip install -r requirements.txt
-cp .env.example .env      # ENTSOE_API_KEY eintragen (SMARD/Open-Meteo: kein Key)
+git clone <REPO-URL> && cd code
+cp .env.example .env
+```
+Windows (PowerShell):
+```powershell
+git clone <REPO-URL>; cd code
+copy .env.example .env
+```
+Dann `.env` öffnen und **`ENTSOE_API_KEY`** eintragen. Für die **echte Abgabe** zusätzlich
+`ARENA_API_KEY` setzen und `SUBMIT_ENABLED=true`. (Ohne das läuft alles als **Dry-Run** —
+es wird gerechnet, aber nichts gesendet.)
+
+**2) Container starten** (Profil je nach GPU)
+```bash
+# NVIDIA
+docker compose -f docker/docker-compose.yml --profile nvidia up -d --build
+# AMD (Linux)
+docker compose -f docker/docker-compose.yml --profile amd    up -d --build
 ```
 
-Einzelmodule (alle `python -m loaders.<modul>`):
-
+**3) Fertig.** Logs mitverfolgen:
 ```bash
-python -m loaders.grid                 # Kontrolle: Zellen, Gewichte, Centroid-Zellen
-python -m loaders.weather point        # Punkt-Wetter je Zelle/Jahr (Einmal-Backfill)
-python -m loaders.weather ensemble     # ICON-D2-EPS, nächster Tag
-python -m loaders.aggregate --ensemble # Zonen-Wetter (pop+centroid) + Diff-Analyse
-python -m loaders.loads                # Ist-Last + Day-ahead-Prognose (4 Zonen + de_lu)
-python -m loaders.loads --reconcile    # nur DE-LU-Reconciliation-Diagnose
-python -m loaders.market               # Preis/Solar/Wind/Residual (+ de_lu)
+docker compose -f docker/docker-compose.yml logs -f
 ```
 
-Orchestrierung (ein einziger Scheduler):
+Beim **ersten Start** lädt der Container automatisch die historischen Daten (einmalig,
+dauert je nach Verbindung). Danach hält er alles stündlich frisch und reicht täglich ein.
+Daten (`data/`) und das Chronos-2-Modell (HuggingFace-Cache) werden in Docker-Volumes
+persistiert, überstehen also Neustarts.
 
+### Was dann automatisch passiert
+| Zeit (UTC) | Job |
+|---|---|
+| stündlich `:05` | **Daten-Refresh** — Wetter (inkl. Vorhersage der nächsten Tage), ENTSO-E-Last, SMARD-Markt, Aggregation |
+| stündlich `:20` | **Prognose** des nächsten Liefertags + **Abgabe** an die Energy Arena, sobald ein Fenster offen ist (Dedup, DST-korrekt) |
+
+### Modell wählen (`PROD_CONFIG` in `.env`)
+- **`G2_C2.2`** *(Default)* — 5 Regionen + bevölkerungsgewichtetes Wetter. **Robust**: braucht nur die Wettervorhersage.
+- **`G2_C4`** — im Backtest bestes (Wetter + Preis/Solar/Wind als Input). Minimal besser, braucht aber den **Day-ahead-Preis** des Liefertags zur Abgabezeit.
+- Alle Varianten: `experiments/configs.py`.
+
+---
+
+## Ohne Docker (lokale Entwicklung)
 ```bash
-python -m loaders.schedule --once      # Voll-Backfill (Erststart)
-python -m loaders.schedule             # Daemon: stündl. Last-Refresh, tägl. Wetter/Markt
+pip install -r requirements.txt        # + torch und chronos-forecasting passend zur GPU
+cp .env.example .env                   # Keys eintragen
+python -m pipeline.orchestrator        # dieselbe Automatik wie im Container
 ```
 
-## Daten-Snapshot (Backup / Weitergabe)
+---
 
-`data/` ist git-ignoriert (~2,8 GB). Statt es zu versionieren, wird es als
-komprimiertes Archiv gesichert/weitergegeben (zstd, ~600 MB, behält die
-Ordnerstruktur).
+## Aufbau des Projekts
 
-**Erstellen** (außerhalb des Repos ablegen, damit es nicht mitgetrackt wird):
-```bash
-cd code
-tar --zstd -cf ../data-snapshot-$(date +%F).tar.zst data/
-```
+Drei Ebenen — versioniert und reproduzierbar:
 
-**Entpacken** (stellt `data/` wieder her):
-```bash
-cd code
-tar --zstd -xf ../data-snapshot-2026-07-09.tar.zst      # Dateinamen anpassen
-```
-Fehlt `zstd`, vorher installieren (`sudo dnf install zstd` / `apt install zstd`);
-alternativ `tar -I zstd -xf …`. Nach dem Entpacken liegen alle Reihen wieder unter
-`code/data/` — die Loader nutzen sie direkt, ein erneuter Download entfällt.
-
-## Struktur
+1. **`loaders/`** — Daten holen & aufbereiten.
+2. **`experiments/`** — Backtests (Zero-Shot & Finetuning) über 27 Config-Familien mit den Energy-Arena-Metriken.
+3. **`pipeline/`** — Live-Betrieb: `forecast` → `arena` (Submit) → `orchestrator` (Scheduler).
 
 ```
 code/
-├── loaders/        config.py grid.py weather.py aggregate.py loads.py market.py schedule.py
-├── reference/      germany_h3_res4.csv  cell_population.csv   (statische Eingaben)
-├── scripts/plot_h3/  H3-Zonenkarten (plot_h3.py + PNGs)
-└── data/           erzeugte Ausgaben (git-ignoriert; via Snapshot gesichert)
+├── pipeline/       forecast.py  arena.py  orchestrator.py   (Live: Prognose + Abgabe)
+├── loaders/        config grid weather aggregate loads market schedule   (Daten)
+├── experiments/    configs data model metrics walkforward score run      (Backtests)
+├── reference/      germany_h3_res4.csv  cell_population.csv               (statische Eingaben)
+├── scripts/        plot_h3/ (H3-Karten)  plot_results/ (Ergebnis-Plots)
+├── docker/         Dockerfile (AMD/NVIDIA)  docker-compose.yml  entrypoint.sh
+└── data/           erzeugte Ausgaben (git-ignoriert; via Snapshot sicherbar)
+```
+Alles UTC, 15-minütig (Aux stündlich). Konstanten/Pfade zentral in `loaders/config.py`.
+
+---
+
+## Datenquellen (`loaders/`)
+
+| # | Quelle | Modul(e) | Ausgabe unter `data/` |
+|---|--------|----------|-----------------------|
+| 1 | **Wetter je H3-Zelle** (224), Punkt + Ensemble | `weather.py`, `aggregate.py` | `historical/`, `historical_ens/`, `weather_zone/{pop,centroid}/` |
+| 2 | **Markt je ÜNB-Zone** (Preis/Solar/Wind/Residual/Last) | `loads.py`, `market.py` | `loads/`, `load_forecast/`, `features/aux_*/` |
+| 3 | **Gesamt DE-LU** + **Luxemburg `lu`** | alle | dieselben Ordner, Gebiete `de_lu`/`lu` |
+
+Gebiete: die 4 Regelzonen `50hertz, tennet, amprion, transnetbw`, die Gebotszone
+`de_lu` und **Luxemburg `lu`** als eigene Reihe (eigene H3-Zelle + ENTSO-E-`LU`-Last;
+Solar/Wind fehlen mangels SMARD-LU-Region). `de_lu` = Σ(4 Zonen) + `lu` (exakt).
+
+Manuelle Loader-Aufrufe (falls nötig, sonst macht der Orchestrator das):
+```bash
+python -m loaders.schedule --once      # Voll-Backfill
+python -m loaders.schedule --refresh   # ein Refresh-Tick (Wetter/Last/Markt/Aggregation)
+python -m loaders.grid                 # Kontrolle: Zellen, Gewichte, Centroids
 ```
 
-Alle Konstanten/Pfade/Codes zentral in `loaders/config.py`. Zeiten durchgehend UTC,
-15-min bzw. (aux) stündlich.
+---
+
+## Backtests & Ergebnisse (`experiments/`)
+
+27 Config-Familien = **3 Granularitäten** (whole / region-indep / region-joint) ×
+**9 Eingabe-Varianten** (C1 nur Last, C2.1/2.2/2.3 Wetter aus 1 Zelle / pop-Mittel /
+4 Zellen, C3.1–3.4 Aux als Multitask-Ziel, C4 alles als Input). Zero-shot, Walk-Forward
+2024–2026, Metriken: **RMSE, R², WIS, LQS, MAE-Median, Cov50/95, CRPS, Energy Score**;
+Benchmark = ENTSO-E-Day-ahead-Prognose.
+
+```bash
+# im GPU-Container:
+python -m experiments.run run --config all --start 2024-01-01 --end 2026-06-01 --score
+python -m experiments.run finetune --config all      # Rolling-Window-LoRA (expanding)
+python scripts/plot_results/plot_results.py          # Ergebnis-Plots
+```
+**Kernbefund (zero-shot):** Chronos-2 schlägt ENTSO-E **probabilistisch** klar
+(WIS ~1070 vs 2030), ist beim **Punkt-RMSE** knapp dahinter; bestes `G2_C4`, Wetter
+hilft (pop-Mittel am besten), Aux-als-Ziel hilft zero-shot nicht.
+
+---
+
+## Daten-Snapshot (Backup / Weitergabe)
+`data/` (~2,8 GB) ist git-ignoriert. Als komprimiertes Archiv sichern (zstd, ~600 MB):
+```bash
+tar --zstd -cf ../data-snapshot-$(date +%F).tar.zst data/    # erstellen
+tar --zstd -xf ../data-snapshot-YYYY-MM-DD.tar.zst           # entpacken -> data/
+```
+Fehlt `zstd`: `apt/dnf install zstd` bzw. `tar -I zstd -xf …`.

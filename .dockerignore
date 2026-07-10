@@ -1,0 +1,10 @@
+.git
+.venv
+data
+experiments/out
+experiments/out_ft
+__pycache__
+*.pyc
+.env
+*.tar.zst
+scripts/**/*.png

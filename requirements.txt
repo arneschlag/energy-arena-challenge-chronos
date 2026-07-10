@@ -1,10 +1,15 @@
+# Nicht-GPU-Abhaengigkeiten (Loader, Experimente, Pipeline).
+# GPU-Teil (torch + chronos-forecasting) kommt aus dem Docker-Image, siehe docker/.
 pandas
 numpy
 h3
+pyarrow
+requests
 entsoe-py
 openmeteo-requests
 requests-cache
 retry-requests
-pyarrow
+holidays
 apscheduler
-matplotlib     # nur fuer scripts/plot_h3 (Karten)
+peft            # nur fuer LoRA-Finetuning (experiments)
+matplotlib      # nur fuer scripts/ (Karten + Ergebnis-Plots)
