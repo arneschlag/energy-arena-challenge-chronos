@@ -1,0 +1,8 @@
+.env
+.cache*
+data/
+.venv/
+__pycache__/
+*.pyc
+# grosse, regenerierbare Forecast-Samples (results.csv + Plots bleiben getrackt)
+experiments/out*/*.parquet

@@ -1,0 +1,10 @@
+pandas
+numpy
+h3
+entsoe-py
+openmeteo-requests
+requests-cache
+retry-requests
+pyarrow
+apscheduler
+matplotlib     # nur fuer scripts/plot_h3 (Karten)

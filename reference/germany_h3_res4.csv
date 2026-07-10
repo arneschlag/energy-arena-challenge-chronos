@@ -1,0 +1,225 @@
+h3_index,landkreis,bundesland,tso,lat,lng
+841e321ffffffff,Landkreis Passau,Bayern,TenneT,48.561690,13.333665
+841e325ffffffff,Landkreis Rottal-Inn,Bayern,TenneT,48.277494,12.885081
+841e329ffffffff,Landkreis Regen,Bayern,TenneT,48.934946,13.189561
+841e32dffffffff,Landkreis Dingolfing-Landau,Bayern,TenneT,48.651298,12.739524
+841e349ffffffff,Erzgebirgskreis,Sachsen,50Hertz,50.684948,13.059454
+841e34dffffffff,Erzgebirgskreis,Sachsen,50Hertz,50.405973,12.599155
+841e361ffffffff,Landkreis Schwandorf,Bayern,TenneT,49.392369,12.444244
+841e365ffffffff,Landkreis Regensburg,Bayern,TenneT,49.107532,11.995616
+841e367ffffffff,Landkreis Straubing-Bogen,Bayern,TenneT,49.022929,12.592584
+841e369ffffffff,Landkreis Neustadt an der Waldnaab,Bayern,TenneT,49.759598,12.294485
+841e36dffffffff,Landkreis Amberg-Sulzbach,Bayern,TenneT,49.475317,11.844453
+841f007ffffffff,Rostock,Mecklenburg-Vorpommern,50Hertz,54.126912,12.136571
+841f015ffffffff,Landkreis Vorpommern-Rügen,Mecklenburg-Vorpommern,50Hertz,54.319493,13.266492
+841f021ffffffff,Landkreis Nordwestmecklenburg,Mecklenburg-Vorpommern,50Hertz,53.582754,11.183695
+841f023ffffffff,Landkreis Ludwigslust-Parchim,Mecklenburg-Vorpommern,50Hertz,53.513095,11.819673
+841f025ffffffff,Landkreis Lüneburg,Niedersachsen,TenneT,53.306853,10.714709
+841f027ffffffff,Landkreis Ludwigslust-Parchim,Mecklenburg-Vorpommern,50Hertz,53.239087,11.347240
+841f029ffffffff,Landkreis Nordwestmecklenburg,Mecklenburg-Vorpommern,50Hertz,53.924060,11.018511
+841f02bffffffff,Landkreis Nordwestmecklenburg,Mecklenburg-Vorpommern,50Hertz,53.856124,11.657644
+841f02dffffffff,Kreis Herzogtum Lauenburg,Schleswig-Holstein,TenneT,53.648787,10.548074
+841f031ffffffff,Landkreis Mecklenburgische Seenplatte,Mecklenburg-Vorpommern,50Hertz,53.709272,12.936480
+841f033ffffffff,Landkreis Mecklenburgische Seenplatte,Mecklenburg-Vorpommern,50Hertz,53.630334,13.575865
+841f035ffffffff,Landkreis Mecklenburgische Seenplatte,Mecklenburg-Vorpommern,50Hertz,53.439795,12.455852
+841f037ffffffff,Landkreis Mecklenburgische Seenplatte,Mecklenburg-Vorpommern,50Hertz,53.362845,13.092076
+841f039ffffffff,Landkreis Vorpommern-Rügen,Mecklenburg-Vorpommern,50Hertz,54.053349,12.779291
+841f03bffffffff,Landkreis Vorpommern-Greifswald,Mecklenburg-Vorpommern,50Hertz,53.976090,13.421975
+841f03dffffffff,Landkreis Rostock,Mecklenburg-Vorpommern,50Hertz,53.784533,12.297020
+841f061ffffffff,Kiel,Schleswig-Holstein,TenneT,54.325544,10.209808
+841f063ffffffff,Kreis Ostholstein,Schleswig-Holstein,TenneT,54.262996,10.851668
+841f065ffffffff,Kreis Steinburg,Schleswig-Holstein,TenneT,54.049021,9.741610
+841f067ffffffff,Kreis Segeberg,Schleswig-Holstein,TenneT,53.988353,10.379781
+841f069ffffffff,Kreis Schleswig-Flensburg,Schleswig-Holstein,TenneT,54.660351,10.038134
+841f06dffffffff,Kreis Rendsburg-Eckernf,Schleswig-Holstein,TenneT,54.384452,9.568556
+841f0e5ffffffff,Landkreis Vorpommern-Greifswald,Mecklenburg-Vorpommern,50Hertz,53.547711,14.215015
+841f0edffffffff,Landkreis Vorpommern-Greifswald,Mecklenburg-Vorpommern,50Hertz,53.895127,14.064460
+841f101ffffffff,Landkreis Diepholz,Niedersachsen,TenneT,52.523324,8.716219
+841f103ffffffff,Region Hannover,Niedersachsen,TenneT,52.464495,9.337365
+841f105ffffffff,Landkreis Osnabrück,Niedersachsen,TenneT,52.236133,8.270618
+841f107ffffffff,Kreis Herford,Nordrhein-Westfalen,Amprion,52.179001,8.888055
+841f109ffffffff,Landkreis Oldenburg,Niedersachsen,TenneT,52.865294,8.542743
+841f10bffffffff,Landkreis Nienburg/Weser,Niedersachsen,TenneT,52.808239,9.166741
+841f10dffffffff,Landkreis Vechta,Niedersachsen,TenneT,52.578673,8.095994
+841f111ffffffff,Landkreis Gifhorn,Niedersachsen,TenneT,52.683569,10.417063
+841f113ffffffff,Altmarkkreis Salzwedel,Sachsen-Anhalt,50Hertz,52.615918,11.043092
+841f115ffffffff,Region Hannover,Niedersachsen,TenneT,52.402165,9.959288
+841f117ffffffff,Braunschweig,Niedersachsen,TenneT,52.336318,10.581843
+841f119ffffffff,Landkreis Uelzen,Niedersachsen,TenneT,53.028474,10.250671
+841f11bffffffff,Landkreis Lüchow-Dannenberg,Niedersachsen,TenneT,52.962561,10.879708
+841f11dffffffff,Landkreis Heidekreis,Niedersachsen,TenneT,52.747670,9.791563
+841f121ffffffff,Kreis Soest,Nordrhein-Westfalen,Amprion,51.601281,8.004000
+841f123ffffffff,Kreis Paderborn,Nordrhein-Westfalen,Amprion,51.544020,8.614985
+841f125ffffffff,Hagen,Nordrhein-Westfalen,Amprion,51.309164,7.569201
+841f127ffffffff,Hochsauerlandkreis,Nordrhein-Westfalen,Amprion,51.253510,8.176481
+841f129ffffffff,Kreis Warendorf,Nordrhein-Westfalen,Amprion,51.946721,7.829910
+841f12bffffffff,Kreis Gwtersloh,Nordrhein-Westfalen,Amprion,51.891245,8.443608
+841f12dffffffff,Kreis Recklinghausen,Nordrhein-Westfalen,Amprion,51.655144,7.394068
+841f131ffffffff,Landkreis Northeim,Niedersachsen,TenneT,51.769975,9.673759
+841f133ffffffff,Landkreis Osterode am Harz,Niedersachsen,TenneT,51.704142,10.289932
+841f135ffffffff,Landkreis Kassel,Hessen,TenneT,51.483340,9.226887
+841f137ffffffff,Landkreis Göttingen,Niedersachsen,TenneT,51.419222,9.839569
+841f139ffffffff,Landkreis Hameln-Pyrmont,Niedersachsen,TenneT,52.118403,9.506365
+841f13bffffffff,Landkreis Hildesheim,Niedersachsen,TenneT,52.054319,10.125404
+841f13dffffffff,Kreis Höxter,Nordrhein-Westfalen,TenneT,51.832336,9.058271
+841f141ffffffff,Landkreis Leer,Niedersachsen,TenneT,53.256671,7.741764
+841f143ffffffff,Landkreis Wesermarsch,Niedersachsen,TenneT,53.204901,8.367606
+841f145ffffffff,Landkreis Emsland,Niedersachsen,TenneT,52.968948,7.297804
+841f147ffffffff,Landkreis Cloppenburg,Niedersachsen,TenneT,52.918856,7.919716
+841f149ffffffff,Landkreis Wittmund,Niedersachsen,TenneT,53.592111,7.562117
+841f151ffffffff,Landkreis Stade,Niedersachsen,TenneT,53.431616,9.451203
+841f153ffffffff,Landkreis Harburg,Niedersachsen,TenneT,53.371024,10.082646
+841f155ffffffff,Landkreis Osterholz,Niedersachsen,TenneT,53.149626,8.994470
+841f157ffffffff,Landkreis Rotenburg (Wmmme),Niedersachsen,TenneT,53.090824,9.622208
+841f159ffffffff,Landkreis Stade,Niedersachsen,TenneT,53.770037,9.278526
+841f15bffffffff,Kreis Pinneberg,Schleswig-Holstein,TenneT,53.711209,9.912966
+841f15dffffffff,Landkreis Cuxhaven,Niedersachsen,TenneT,53.488646,8.820534
+841f163ffffffff,Kreis Steinfurt,Nordrhein-Westfalen,Amprion,52.289820,7.654194
+841f167ffffffff,Kreis Coesfeld,Nordrhein-Westfalen,Amprion,51.998787,7.217315
+841f16bffffffff,Landkreis Emsland,Niedersachsen,TenneT,52.630565,7.476832
+841f181ffffffff,Landkreis Teltow-Fleming,Brandenburg,50Hertz,52.037460,13.075442
+841f183ffffffff,Landkreis Dahme-Spreewald,Brandenburg,50Hertz,51.953824,13.698949
+841f185ffffffff,Landkreis Wittenberg,Sachsen-Anhalt,50Hertz,51.762813,12.605984
+841f187ffffffff,Landkreis Elbe-Elster,Brandenburg,50Hertz,51.681084,13.226510
+841f189ffffffff,Landkreis Potsdam-Mittelmark,Brandenburg,50Hertz,52.391531,12.922863
+841f18bffffffff,Landkreis Dahme-Spreewald,Brandenburg,50Hertz,52.309554,13.549515
+841f18dffffffff,Landkreis Potsdam-Mittelmark,Brandenburg,50Hertz,52.117519,12.451829
+841f195ffffffff,Landkreis Spree-Neiee,Brandenburg,50Hertz,51.866605,14.322205
+841f19dffffffff,Landkreis Oder-Spree,Brandenburg,50Hertz,52.223975,14.175948
+841f1a1ffffffff,Landkreis Leipzig,Sachsen,50Hertz,51.128046,12.295297
+841f1a3ffffffff,Landkreis Mittelsachsen,Sachsen,50Hertz,51.046514,12.909777
+841f1a5ffffffff,Saale-Holzland-Kreis,Thüringen,50Hertz,50.847852,11.836514
+841f1a7ffffffff,Landkreis Zwickau,Sachsen,50Hertz,50.768143,12.447963
+841f1a9ffffffff,Saalekreis,Sachsen-Anhalt,50Hertz,51.485666,12.141138
+841f1abffffffff,Landkreis Leipzig,Sachsen,50Hertz,51.405808,12.758627
+841f1adffffffff,Burgenlandkreis,Sachsen-Anhalt,50Hertz,51.206072,11.680896
+841f1b1ffffffff,Landkreis Bautzen,Sachsen,50Hertz,51.235487,13.993375
+841f1b3ffffffff,Landkreis Bautzen,Sachsen,50Hertz,51.145017,14.610347
+841f1b5ffffffff,Landkreis Sächsische Schweiz-Osterzgebirge,Sachsen,50Hertz,50.961470,13.524193
+841f1b7ffffffff,Landkreis Sächsische Schweiz-Osterzgebirge,Sachsen,50Hertz,50.872908,14.138405
+841f1b9ffffffff,Landkreis Elbe-Elster,Brandenburg,50Hertz,51.595797,13.846896
+841f1bbffffffff,Landkreis Bautzen,Sachsen,50Hertz,51.506948,14.466998
+841f1bdffffffff,Landkreis Meiien,Sachsen,50Hertz,51.322416,13.376087
+841f1c1ffffffff,Landkreis Stendal,Sachsen-Anhalt,50Hertz,52.819978,12.138900
+841f1c3ffffffff,Landkreis Ostprignitz-Ruppin,Brandenburg,50Hertz,52.743284,12.768752
+841f1c5ffffffff,Landkreis Stendal,Sachsen-Anhalt,50Hertz,52.544703,11.669501
+841f1c7ffffffff,Landkreis Jerichower Land,Sachsen-Anhalt,50Hertz,52.469911,12.296142
+841f1c9ffffffff,Landkreis Prignitz,Brandenburg,50Hertz,53.167709,11.980085
+841f1cbffffffff,Landkreis Ostprignitz-Ruppin,Brandenburg,50Hertz,53.092709,12.613089
+841f1cdffffffff,Altmarkkreis Salzwedel,Sachsen-Anhalt,50Hertz,52.893066,11.509168
+841f1d1ffffffff,Landkreis Barnim,Brandenburg,50Hertz,52.931802,13.878959
+841f1d5ffffffff,Landkreis Oberhavel,Brandenburg,50Hertz,52.662975,13.398571
+841f1d7ffffffff,Landkreis Märkisch-Oderland,Brandenburg,50Hertz,52.579045,14.028206
+841f1d9ffffffff,Landkreis Uckermark,Brandenburg,50Hertz,53.282235,13.728186
+841f1dbffffffff,Landkreis Uckermark,Brandenburg,50Hertz,53.197959,14.364027
+841f1ddffffffff,Landkreis Oberhavel,Brandenburg,50Hertz,53.014076,13.246099
+841f1e1ffffffff,Salzlandkreis,Sachsen-Anhalt,50Hertz,51.915627,11.365100
+841f1e3ffffffff,Landkreis Anhalt-Bitterfeld,Sachsen-Anhalt,50Hertz,51.840991,11.985466
+841f1e5ffffffff,Landkreis Harz,Sachsen-Anhalt,50Hertz,51.634823,10.906648
+841f1e7ffffffff,Landkreis Mansfeld-Sedharz,Sachsen-Anhalt,50Hertz,51.562001,11.523764
+841f1e9ffffffff,Landkreis Börde,Sachsen-Anhalt,50Hertz,52.266937,11.204882
+841f1ebffffffff,Landkreis Jerichower Land,Sachsen-Anhalt,50Hertz,52.194008,11.828261
+841f1edffffffff,Landkreis Harz,Sachsen-Anhalt,50Hertz,51.986732,10.745031
+841f315ffffffff,Kreis Nordfriesland,Schleswig-Holstein,TenneT,54.771004,8.750251
+841f317ffffffff,Kreis Schleswig-Flensburg,Schleswig-Holstein,TenneT,54.717495,9.393783
+841f333ffffffff,Kreis Dithmarschen,Schleswig-Holstein,TenneT,54.106081,9.104157
+841f337ffffffff,Landkreis Cuxhaven,Niedersachsen,TenneT,53.825292,8.644910
+841f811ffffffff,Schwarzwald-Baar-Kreis,Baden-Württemberg,TransnetBW,48.160665,8.492353
+841f813ffffffff,Landkreis Sigmaringen,Baden-Württemberg,TransnetBW,48.092413,9.075583
+841f815ffffffff,Landkreis Breisgau-Hochschwarzwald,Baden-Württemberg,TransnetBW,47.860622,8.074861
+841f819ffffffff,Landkreis Freudenstadt,Baden-Württemberg,TransnetBW,48.525303,8.328469
+841f81bffffffff,Landkreis Tlbingen,Baden-Württemberg,TransnetBW,48.458796,8.914198
+841f81dffffffff,Ortenaukreis,Baden-Württemberg,TransnetBW,48.225700,7.909982
+841f839ffffffff,Landkreis Lörrach,Baden-Württemberg,TransnetBW,47.558724,7.661699
+841f853ffffffff,Landkreis Rastatt,Baden-Württemberg,TransnetBW,48.887732,8.163116
+841f859ffffffff,Zweibrücken,Rheinland-Pfalz,Amprion,49.307665,7.406500
+841f85bffffffff,Landkreis Südliche Weinstraße,Rheinland-Pfalz,Amprion,49.247932,7.996277
+841f881ffffffff,Landkreis Garmisch-Partenkirchen,Bayern,TenneT,47.494537,10.981478
+841f889ffffffff,Landkreis Landsberg am Lech,Bayern,TenneT,47.868203,10.829226
+841f88bffffffff,Landkreis Bad Tölz-Wolfratshausen,Bayern,TenneT,47.786941,11.414689
+841f88dffffffff,Landkreis Oberallgru,Bayern,Amprion,47.574211,10.398993
+841f899ffffffff,Landkreis Traunstein,Bayern,TenneT,47.991045,12.440664
+841f89dffffffff,Landkreis Miesbach,Bayern,TenneT,47.702399,12.000408
+841f8c1ffffffff,Landkreis Neu-Ulm,Bayern,Amprion,48.316017,10.087873
+841f8c3ffffffff,Landkreis Augsburg,Bayern,Amprion,48.239717,10.675576
+841f8c5ffffffff,Landkreis Biberach,Baden-Württemberg,TransnetBW,48.020928,9.659552
+841f8c7ffffffff,Landkreis Unterallgeu,Bayern,Amprion,47.946196,10.244140
+841f8c9ffffffff,Landkreis Gsppingen,Baden-Württemberg,TransnetBW,48.683654,9.930177
+841f8cbffffffff,Landkreis Dillingen an der Donau,Bayern,Amprion,48.609056,10.520510
+841f8cdffffffff,Landkreis Reutlingen,Baden-Württemberg,TransnetBW,48.389038,9.500707
+841f8d1ffffffff,Landkreis Freising,Bayern,TenneT,48.449927,11.702399
+841f8d3ffffffff,Landkreis Landshut,Bayern,TenneT,48.365377,12.293704
+841f8d5ffffffff,Landkreis Fürstenfeldbruck,Bayern,TenneT,48.160128,11.263691
+841f8d7ffffffff,Landkreis Ebersberg,Bayern,TenneT,48.077240,11.852095
+841f8d9ffffffff,Landkreis Eichststt,Bayern,TenneT,48.820441,11.551302
+841f8dbffffffff,Landkreis Landshut,Bayern,TenneT,48.737546,12.145360
+841f8ddffffffff,Landkreis Aichach-Friedberg,Bayern,Amprion,48.531151,11.111292
+841f8e9ffffffff,Bodenseekreis,Baden-Württemberg,TransnetBW,47.723849,9.235528
+841f8ebffffffff,Landkreis Ravensburg,Baden-Württemberg,TransnetBW,47.650645,9.816970
+841fa0bffffffff,Städteregion Aachen,Nordrhein-Westfalen,Amprion,50.767973,6.115415
+841fa11ffffffff,Rhein-Sieg-Kreis,Nordrhein-Westfalen,Amprion,50.666128,7.313714
+841fa13ffffffff,Westerwaldkreis,Rheinland-Pfalz,Amprion,50.610244,7.914685
+841fa15ffffffff,Landkreis Ahrweiler,Rheinland-Pfalz,Amprion,50.369369,6.889393
+841fa17ffffffff,Landkreis Mayen-Koblenz,Rheinland-Pfalz,Amprion,50.315001,7.486671
+841fa19ffffffff,Rheinisch-Bergischer Kreis,Nordrhein-Westfalen,Amprion,51.014951,7.139183
+841fa1bffffffff,Oberbergischer Kreis,Nordrhein-Westfalen,Amprion,50.960860,7.742734
+841fa1dffffffff,Kreis Euskirchen,Nordrhein-Westfalen,Amprion,50.718696,6.713915
+841fa31ffffffff,Trier,Rheinland-Pfalz,Amprion,49.718535,6.644556
+841fa33ffffffff,Landkreis Birkenfeld,Rheinland-Pfalz,Amprion,49.663839,7.235668
+841fa37ffffffff,Landkreis Saarlouis,Saarland,Amprion,49.364155,6.817832
+841fa39ffffffff,Eifelkreis Bitburg-Prüm,Rheinland-Pfalz,Amprion,50.070640,6.469739
+841fa3bffffffff,Landkreis Bernkastel-Wittlich,Rheinland-Pfalz,Amprion,50.017745,7.063305
+841fa51ffffffff,Kreis Kleve,Nordrhein-Westfalen,Amprion,51.410408,6.358188
+841fa53ffffffff,Essen,Nordrhein-Westfalen,Amprion,51.361456,6.963059
+841fa57ffffffff,Rhein-Kreis Neuss,Nordrhein-Westfalen,Amprion,51.065714,6.536853
+841fa59ffffffff,Kreis Kleve,Nordrhein-Westfalen,Amprion,51.752769,6.177903
+841fa5bffffffff,Kreis Wesel,Nordrhein-Westfalen,Amprion,51.705632,6.785324
+841fa81ffffffff,Landkreis Bad Kissingen,Bayern,TenneT,50.064295,9.885739
+841fa83ffffffff,Landkreis Harberge,Bayern,TenneT,49.993218,10.487347
+841fa85ffffffff,Landkreis Miltenberg,Bayern,TenneT,49.773276,9.448330
+841fa87ffffffff,Landkreis Würzburg,Bayern,TenneT,49.703839,10.046643
+841fa89ffffffff,Landkreis Fulda,Hessen,TenneT,50.422488,9.723330
+841fa8bffffffff,Landkreis Rhon-Grabfeld,Bayern,TenneT,50.353140,10.327683
+841fa8dffffffff,Landkreis Aschaffenburg,Bayern,TenneT,50.131995,9.284737
+841fa91ffffffff,Landkreis Kulmbach,Bayern,TenneT,50.204207,11.537798
+841fa93ffffffff,Landkreis Wunsiedel im Fichtelgebirge,Bayern,TenneT,50.124600,12.143290
+841fa95ffffffff,Landkreis Bamberg,Bayern,TenneT,49.918751,11.089429
+841fa97ffffffff,Landkreis Bayreuth,Bayern,TenneT,49.840881,11.691853
+841fa99ffffffff,Landkreis Saalfeld-Rudolstadt,Thüringen,50Hertz,50.565280,11.382269
+841fa9bffffffff,Vogtlandkreis,Sachsen,50Hertz,50.487356,11.990639
+841fa9dffffffff,Coburg,Bayern,TenneT,50.280384,10.932551
+841faa1ffffffff,Heilbronn,Baden-Württemberg,TransnetBW,49.118661,9.178667
+841faa3ffffffff,Landkreis Schwäbisch Hall,Baden-Württemberg,TransnetBW,49.049088,9.771032
+841faa5ffffffff,Enzkreis,Baden-Württemberg,TransnetBW,48.822976,8.751356
+841faa7ffffffff,Landkreis Esslingen,Baden-Württemberg,TransnetBW,48.754956,9.340417
+841faa9ffffffff,Rhein-Neckar-Kreis,Baden-Württemberg,TransnetBW,49.480137,9.015437
+841faabffffffff,Hohenlohekreis,Baden-Württemberg,TransnetBW,49.412301,9.610423
+841faadffffffff,Landkreis Karlsruhe,Baden-Württemberg,TransnetBW,49.184937,8.587040
+841fab1ffffffff,Landkreis Ansbach,Bayern,TenneT,49.266626,10.802225
+841fab3ffffffff,Landkreis Neumarkt in der Oberpfalz,Bayern,TenneT,49.188762,11.398787
+841fab5ffffffff,Ostalbkreis,Baden-Württemberg,TransnetBW,48.976202,10.364011
+841fab7ffffffff,Landkreis Weipenburg-Gunzenhausen,Bayern,TenneT,48.899990,10.957476
+841fab9ffffffff,Landkreis Neustadt an der Aisch-Bad Windsheim,Bayern,TenneT,49.631042,10.645522
+841fabbffffffff,Landkreis Nornberger Land,Bayern,TenneT,49.554871,11.244835
+841fabdffffffff,Landkreis Ansbach,Bayern,TenneT,49.341135,10.206061
+841fac1ffffffff,Landkreis Marburg-Biedenkopf,Hessen,TenneT,50.842607,8.952974
+841fac3ffffffff,Landkreis Hersfeld-Rotenburg,Hessen,TenneT,50.778403,9.559397
+841fac5ffffffff,Lahn-Dill-Kreis,Hessen,TenneT,50.551023,8.516698
+841fac7ffffffff,Vogelsbergkreis,Hessen,TenneT,50.488444,9.119624
+841fac9ffffffff,Landkreis Waldeck-Frankenberg,Hessen,TenneT,51.194470,8.784767
+841facbffffffff,Schwalm-Eder-Kreis,Hessen,TenneT,51.132025,9.393923
+841facdffffffff,Kreis Siegen-Wittgenstein,Nordrhein-Westfalen,Amprion,50.903419,8.347375
+841fad1ffffffff,Landkreis Gotha,Thüringen,50Hertz,50.996847,10.614301
+841fad3ffffffff,Landkreis Weimarer Land,Thüringen,50Hertz,50.924083,11.225247
+841fad5ffffffff,Wartburgkreis,Thüringen,50Hertz,50.710791,10.166512
+841fad7ffffffff,Suhl,Thüringen,50Hertz,50.639754,10.774181
+841fad9ffffffff,Landkreis Eichsfeld,Thüringen,50Hertz,51.351647,10.452891
+841fadbffffffff,Landkreis Sömmerda,Thüringen,50Hertz,51.280602,11.066713
+841faddffffffff,Werra-Meibner-Kreis,Hessen,TenneT,51.066156,10.003813
+841fae1ffffffff,Landkreis Mainz-Bingen,Rheinland-Pfalz,Amprion,49.902130,8.253916
+841fae3ffffffff,Landkreis Darmstadt-Dieburg,Hessen,Amprion,49.839367,8.850712
+841fae5ffffffff,Donnersbergkreis,Rheinland-Pfalz,Amprion,49.605888,7.827935
+841fae7ffffffff,Mannheim,Baden-Württemberg,TransnetBW,49.544661,8.421233
+841fae9ffffffff,Rheingau-Taunus-Kreis,Hessen,Amprion,50.257329,8.085073
+841faebffffffff,Frankfurt am Main,Hessen,Amprion,50.196334,8.684471
+841faedffffffff,Rhein-Hunsrück-Kreis,Rheinland-Pfalz,Amprion,49.961582,7.658072
