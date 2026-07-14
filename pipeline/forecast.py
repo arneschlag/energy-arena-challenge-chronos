@@ -4,7 +4,8 @@ Nutzt dieselbe Chronos-2-Task-Logik wie die Experimente (experiments.model), abe
 fuer EIN zukuenftiges Liefertag-Fenster. Liefert je Gebiet die 21 Samples der 96
 Liefer-Steps; DE-LU wird daraus kombiniert (Quantil-Summe bzw. Bootstrap-Ensemble).
 
-Produktions-Config via env PROD_CONFIG (Default G2_C4 — 5 Regionen + Wetter/Aux-Input).
+Produktions-Config via env PROD_CONFIG (Default G1_C5 — ein DE-LU-Gesamtmodell mit
+Punktwetter-Forecasts, past-only Preis/Solar/Wind und Kalenderfeatures).
 """
 from __future__ import annotations
 
@@ -14,28 +15,37 @@ import numpy as np
 import pandas as pd
 
 from experiments import configs, data, model
+from loaders import config as lc
 
 FREQ = "15min"
 STEPS = 96
+lc.load_dotenv()
 CTX_DAYS = int(os.environ.get("CTX_DAYS", "63"))
-# Produktions-Config: Default robust (Wetter-only, keine Abhaengigkeit vom noch
-# unveroeffentlichten Day-ahead-Preis). G2_C4 ist im Backtest bestes, braucht aber
-# den Liefertag-Preis als Covariate -> nur setzen, wenn der zur Abgabezeit vorliegt.
-PROD_CONFIG = os.environ.get("PROD_CONFIG", "G2_C2.2")
+# Produktions-Config: Branch-B-Champion fuer Submission. Wetter darf als known-future
+# Covariate in die Zukunft schauen, aber als einfacher Punktforecast-Input; die drei
+# Arena-Ausgabeformate (point/quantile/ensemble) werden daraus erst nach Chronos gebaut.
+PROD_CONFIG = os.environ.get("PROD_CONFIG", "G1_C5")
 QUANTILE_LEVELS = [0.025, 0.25, 0.5, 0.75, 0.975]
 
 
 def _delivery_window(delivery_date=None, gate_hour: int = 9):
-    """(cutoff, fut_idx, deliv-mask) fuer den Liefertag (Default: morgen UTC).
-    Cutoff = D-1 09:00 UTC (Day-ahead-Gate) — identisch zum Backtest, damit
-    Live-Prognose und Evaluation deckungsgleich sind."""
+    """(cutoff, fut_idx, delivery-mask) fuer einen Arena-Liefertag.
+
+    `delivery_date` darf ein Arena-`target_start` mit Zeitzone sein, z.B.
+    2026-07-16T00:00:00+02:00. Bewertet/gesendet werden genau die 96 Schritte ab
+    diesem Start. Der Cutoff bleibt wie im Backtest bei 09:00 UTC am Vortag des
+    UTC-Zieltags, damit Submission und Backtest dieselbe Informationslogik nutzen.
+    """
     now = pd.Timestamp.now(tz="UTC")
-    D = pd.Timestamp(delivery_date) if delivery_date is not None else (now.normalize() + pd.Timedelta(days=1))
-    D = (D.tz_convert("UTC") if D.tz else D.tz_localize("UTC")).normalize()
-    cutoff = D - pd.Timedelta(days=1) + pd.Timedelta(hours=gate_hour)
-    end = D + pd.Timedelta(hours=23, minutes=45)
+    if delivery_date is None:
+        target_start = now.normalize() + pd.Timedelta(days=1)
+    else:
+        target_start = pd.Timestamp(delivery_date)
+        target_start = target_start.tz_convert("UTC") if target_start.tz else target_start.tz_localize("UTC")
+    cutoff = target_start.normalize() - pd.Timedelta(days=1) + pd.Timedelta(hours=gate_hour)
+    end = target_start + pd.Timedelta(hours=23, minutes=45)
     fut_idx = pd.date_range(cutoff + pd.Timedelta(FREQ), end, freq=FREQ)
-    return cutoff, fut_idx, (fut_idx.normalize() == D)
+    return cutoff, fut_idx, (fut_idx >= target_start) & (fut_idx <= end)
 
 
 def zone_samples(cfg_name: str = PROD_CONFIG, delivery_date=None):
@@ -46,7 +56,7 @@ def zone_samples(cfg_name: str = PROD_CONFIG, delivery_date=None):
     frames = {}
     for a in cfg.areas:
         try:
-            frames[a] = model.area_frame(cfg, a)
+            frames[a] = model.area_frame(cfg, a, include_future=True)
         except FileNotFoundError:
             pass
     out = {}

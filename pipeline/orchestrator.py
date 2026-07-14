@@ -46,7 +46,7 @@ def job_submit():
 def main():
     lc.load_dotenv()
     print(f"### Produktions-Orchestrator Start {time.strftime('%Y-%m-%d %H:%M:%S')} "
-          f"| SUBMIT_ENABLED={arena.SUBMIT_ENABLED} | model={__import__('os').environ.get('PROD_CONFIG','G2_C2.2')}",
+          f"| SUBMIT_ENABLED={arena.SUBMIT_ENABLED} | model={__import__('os').environ.get('PROD_CONFIG','G1_C5')}",
           file=sys.stderr, flush=True)
     if _needs_backfill():
         print("Kein Datenbestand -> Voll-Backfill (einmalig, kann dauern)", file=sys.stderr, flush=True)

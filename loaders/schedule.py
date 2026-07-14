@@ -4,12 +4,12 @@ Drei Betriebsarten:
   --once     Voll-Backfill: alles einmal der Reihe nach (fuer den Erststart).
   --refresh  EIN inkrementeller Tick, dann Ende — fuer externe Planung (cron/systemd,
              z.B. alle 2 h): Punkt-Wetter rollierend (Luecken der letzten Tage +
-             naechste 2 Tage) + Last-Refresh (letzte 5 Tage mergen) + Markt/Aux +
-             Ensemble + Aggregation. Kein Voll-Jahres-Backfill.
+             naechste 4 Tage) + Last-Refresh (letzte 5 Tage mergen) + Markt/Aux +
+             Aggregation. Kein Voll-Jahres-Backfill.
   (default)  Daemon mit APScheduler (UTC), eigene Trigger:
              :05 stuendlich  -> loads.refresh_recent(5)  (Ist-Last + Prognose mergen)
              06:30 taeglich   -> market  (Preis/Solar/Wind/Residual neu bauen)
-             07:00 taeglich   -> weather.download_ensemble (naechster Tag) + aggregate
+             07:00 taeglich   -> Punktwetter-Refresh + Aggregation
 
 Punkt-Wetter- und Voll-Jahres-Last-Backfill sind Einmal-Laeufe (--once bzw. die
 Einzelmodule) und laufen bewusst NICHT im laufenden Betrieb.
@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import sys
 import traceback
+from contextlib import contextmanager
 
 from . import aggregate, config, loads, market, weather
 
@@ -44,6 +45,17 @@ def _token() -> str:
     return token
 
 
+@contextmanager
+def _clean_argv():
+    """Call module-level CLIs from the scheduler without leaking scheduler flags."""
+    old = sys.argv[:]
+    try:
+        sys.argv = [old[0]]
+        yield
+    finally:
+        sys.argv = old
+
+
 # --- Jobs -------------------------------------------------------------------
 
 def job_loads_refresh() -> None:
@@ -51,14 +63,13 @@ def job_loads_refresh() -> None:
 
 
 def job_market() -> None:
-    market.main()
+    with _clean_argv():
+        market.main()
 
 
 def job_weather_daily() -> None:
-    weather.refresh_recent(past_days=7, forecast_days=2)   # Luecken + naechste Tage
-    weather.download_ensemble(forecast_days=2)
+    weather.refresh_recent(past_days=7, forecast_days=4)   # Luecken + naechste Arena-Tage
     aggregate.aggregate_point()
-    aggregate.aggregate_ensemble()
     aggregate.analyse_diff()
 
 
@@ -66,12 +77,10 @@ def run_once() -> None:
     """Voll-Backfill fuer den Erststart."""
     token = _token()
     _safe(lambda: weather.download_point(config.DEFAULT_YEARS), "weather.point")
-    _safe(lambda: weather.download_ensemble(forecast_days=2), "weather.ensemble")
     _safe(lambda: loads.download(config.DEFAULT_YEARS, token), "loads.download")
     _safe(loads.reconcile_delu, "loads.reconcile_delu")
-    _safe(market.main, "market")
+    _safe(job_market, "market")
     _safe(aggregate.aggregate_point, "aggregate.point")
-    _safe(aggregate.aggregate_ensemble, "aggregate.ensemble")
     _safe(aggregate.analyse_diff, "aggregate.diff")
 
 
@@ -79,13 +88,11 @@ def run_refresh() -> None:
     """Ein inkrementeller Tick fuer den laufenden Betrieb (idempotent, dann Ende).
     Fuer externe Planung gedacht (cron/systemd-Timer, z.B. alle 2 h)."""
     _token()                                     # Token frueh pruefen
-    # Punkt-Wetter rollierend: Luecken der letzten Tage schliessen + naechste 2 Tage
-    _safe(lambda: weather.refresh_recent(past_days=7, forecast_days=2), "weather.refresh")
+    # Punkt-Wetter rollierend: Luecken der letzten Tage schliessen + naechste Arena-Tage
+    _safe(lambda: weather.refresh_recent(past_days=7, forecast_days=4), "weather.refresh")
     _safe(job_loads_refresh, "loads.refresh")    # letzte 5 Tage Ist+Prognose mergen
     _safe(job_market, "market")                  # Preis/Solar/Wind/Residual (bis heute)
-    _safe(lambda: weather.download_ensemble(forecast_days=2), "weather.ensemble")
     _safe(aggregate.aggregate_point, "aggregate.point")
-    _safe(aggregate.aggregate_ensemble, "aggregate.ensemble")
     _safe(aggregate.analyse_diff, "aggregate.diff")
 
 

@@ -100,14 +100,20 @@ def _read_cell(h3_index: str) -> pd.DataFrame:
 
 
 def frame(area: str, weather_source: str | None = None,
-          aux_cols: tuple[str, ...] = ()) -> pd.DataFrame:
+          aux_cols: tuple[str, ...] = (), include_future: bool = False) -> pd.DataFrame:
     """Aligned 15-min-DataFrame: 'target' + optional Wetter + optional aux_<name>.
     Aux wird per ffill aufs 15-min-Raster gebracht. Fehlende aux -> Spalte entfaellt."""
     df = target(area).to_frame()
     if weather_source:
-        df = df.join(weather(area, weather_source), how="inner")
+        how = "outer" if include_future else "inner"
+        df = df.join(weather(area, weather_source), how=how)
     for name in aux_cols:
         s = aux(area, name)
         if s is not None:
             df[f"aux_{name}"] = s.reindex(df.index, method="ffill")
-    return df.dropna().sort_index()
+    if include_future:
+        cols = [c for c in df.columns if c != "target"]
+        df = df.dropna(subset=cols)
+    else:
+        df = df.dropna()
+    return df.sort_index()

@@ -44,6 +44,8 @@ def main():
     r.add_argument("--cadence", type=int, default=1, help="Tage zwischen Origins")
     r.add_argument("--ctx-days", type=int, default=63)
     r.add_argument("--gate-hour", type=int, default=9)
+    r.add_argument("--out-dir", default=None,
+                   help="Zielverzeichnis (rel. zu experiments/ oder absolut; Default out)")
     r.add_argument("--force", action="store_true", help="vorhandene Ergebnisse ueberschreiben")
     r.add_argument("--score", action="store_true", help="am Ende automatisch scoren")
 
@@ -56,6 +58,13 @@ def main():
     f.add_argument("--gate-hour", type=int, default=9)
     f.add_argument("--num-steps", type=int, default=200, help="LoRA-Steps je Refit (klein = wenig Overfit)")
     f.add_argument("--refit-months", type=int, default=3, help="Rolling-Refit-Cadence in Monaten")
+    f.add_argument("--train-window-months", type=int, default=None,
+                   help="Rolling-Trainingsfenster in Monaten (Default: Expanding = alle Historie)")
+    f.add_argument("--out-dir", default=None,
+                   help="Zielverzeichnis (rel. zu experiments/ oder absolut; Default out_ft)")
+    f.add_argument("--area", default=None,
+                   help="nur dieses Gebiet rechnen (indep/whole) -> Teil-Parquet "
+                        "{config}__{area}.parquet; isoliert Fits gegen HIP-Fehler")
     f.add_argument("--force", action="store_true")
 
     s = sub.add_parser("score", help="Metriken aggregieren")
@@ -64,9 +73,10 @@ def main():
 
     a = p.parse_args()
     if a.cmd == "finetune":
-        from pathlib import Path
         from . import walkforward as wf
-        ft_dir = Path(__file__).resolve().parent / "out_ft"
+        _base = Path(__file__).resolve().parent
+        ft_dir = (Path(a.out_dir) if a.out_dir and Path(a.out_dir).is_absolute()
+                  else _base / (a.out_dir or "out_ft"))
         sel = _select(a.config)
         print(f"### FT START {len(sel)} Configs ({a.start}..{a.end}, refit {a.refit_months}M, "
               f"{a.num_steps} steps) {time.strftime('%Y-%m-%d %H:%M:%S')}", file=sys.stderr, flush=True)
@@ -80,18 +90,21 @@ def main():
             try:
                 wf.run_config_ft(cfg, a.start, a.end, cadence=a.cadence, ctx_days=a.ctx_days,
                                  gate_hour=a.gate_hour, num_steps=a.num_steps,
-                                 refit_months=a.refit_months)
+                                 refit_months=a.refit_months, out_dir=ft_dir, only_area=a.area,
+                                 train_window_months=a.train_window_months)
             except Exception:
                 print(f"[FEHLER] {cfg.name}:\n{traceback.format_exc()}", file=sys.stderr, flush=True)
             print(f"[{i}/{len(sel)}] {cfg.name} fertig in {time.time()-t0:.0f}s",
                   file=sys.stderr, flush=True)
         print(f"### FT DONE {time.strftime('%Y-%m-%d %H:%M:%S')}", file=sys.stderr, flush=True)
     elif a.cmd == "run":
+        zs_dir = (Path(a.out_dir) if a.out_dir and Path(a.out_dir).is_absolute()
+                  else Path(__file__).resolve().parent / (a.out_dir or "out"))
         sel = _select(a.config)
         print(f"### START {len(sel)} Configs ({a.start}..{a.end}, cadence {a.cadence}) "
               f"{time.strftime('%Y-%m-%d %H:%M:%S')}", file=sys.stderr, flush=True)
         for i, cfg in enumerate(sel, 1):
-            pq = OUT / f"{cfg.name}.parquet"
+            pq = zs_dir / f"{cfg.name}.parquet"
             if pq.exists() and not a.force:
                 print(f"[{i}/{len(sel)}] skip {cfg.name} (vorhanden)", file=sys.stderr, flush=True)
                 continue
@@ -100,16 +113,16 @@ def main():
                   file=sys.stderr, flush=True)
             try:                                             # Fehler isolieren -> Batch laeuft weiter
                 walkforward.run_config(cfg, a.start, a.end, cadence=a.cadence,
-                                       ctx_days=a.ctx_days, gate_hour=a.gate_hour)
+                                       ctx_days=a.ctx_days, gate_hour=a.gate_hour,
+                                       out_dir=zs_dir)
             except Exception:
                 print(f"[FEHLER] {cfg.name}:\n{traceback.format_exc()}", file=sys.stderr, flush=True)
             print(f"[{i}/{len(sel)}] {cfg.name} fertig in {time.time()-t0:.0f}s",
                   file=sys.stderr, flush=True)
         print(f"### DONE {time.strftime('%Y-%m-%d %H:%M:%S')}", file=sys.stderr, flush=True)
         if a.score:
-            score.score_all()
+            score.score_all(out_dir=zs_dir)
     else:
-        from pathlib import Path
         d = Path(__file__).resolve().parent / a.dir if a.dir else score.OUT
         score.score_all(a.out, out_dir=d)
 

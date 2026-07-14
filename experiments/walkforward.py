@@ -143,18 +143,29 @@ def _refit_periods(start, end, refit_months):
 
 
 def run_config_ft(cfg: configs.Config, start, end, cadence=1, ctx_days=63,
-                  gate_hour=9, num_steps=300, refit_months=3, chunk=64, out_dir=None):
-    """Expanding-window continual LoRA-Finetuning: alle `refit_months` neu fitten (auf
-    Daten < Fensterstart, also 2023 -> +2024 -> +2025 ...), dann das Fenster
-    out-of-sample walk-forward. Leckage-frei. -> out_ft/{config}.parquet."""
+                  gate_hour=9, num_steps=300, refit_months=3, chunk=64, out_dir=None,
+                  only_area=None, train_window_months=None):
+    """Continual LoRA-Finetuning: alle `refit_months` neu fitten (auf Daten < Fensterstart),
+    dann das Fenster out-of-sample walk-forward. Leckage-frei. -> out_ft/{config}.parquet.
+
+    train_window_months: None = Expanding Window (alle Historie, v1-Verhalten);
+    z.B. 12 = Rolling Window, jeder Fit sieht nur die letzten 12 Monate vor train_end
+    (haelt den Trainingsfokus auf dem aktuellen Lastregime, alte Regimes rollen raus).
+
+    only_area (nur indep/whole): rechnet nur dieses Gebiet und schreibt ein Teil-Parquet
+    {config}__{area}.parquet. So laeuft jede der 5 indep-Zonen in EINEM eigenen Prozess
+    (~10 statt ~50 Fits) -> vermeidet die HIP-Context-Korruption. Fuer joint ignoriert."""
     from pathlib import Path
     out_dir = Path(out_dir) if out_dir else Path(__file__).resolve().parent / "out_ft"
     out_dir.mkdir(parents=True, exist_ok=True)
     ctx_steps = ctx_days * STEPS_PER_DAY
     HOR = 155
+    split = only_area is not None and cfg.gran != "joint"
 
     frames = {}
     for a in cfg.areas:
+        if split and a != only_area:
+            continue
         try:
             frames[a] = model.area_frame(cfg, a)
         except FileNotFoundError:
@@ -167,11 +178,14 @@ def run_config_ft(cfg: configs.Config, start, end, cadence=1, ctx_days=63,
     rows, n_fit = [], 0
 
     for train_end, es, ee in periods:
+        tr_start = (train_end - pd.DateOffset(months=train_window_months)
+                    if train_window_months else None)
         days = eval_days(es, ee - pd.Timedelta(days=1), cadence)
         geoms = [_day_geometry(D, gate_hour) for D in days]
         if cfg.gran in ("whole", "indep"):
             for a, (df, tcols, known, past) in frames.items():
-                fit_task = model.build_fit_task(df, train_end, tcols, known, past)
+                fit_task = model.build_fit_task(df, train_end, tcols, known, past,
+                                                train_start=tr_start)
                 if fit_task is None:
                     continue
                 ft = model.fit_lora([fit_task], HOR, ctx_steps, num_steps=num_steps)
@@ -187,7 +201,7 @@ def run_config_ft(cfg: configs.Config, start, end, cadence=1, ctx_days=63,
                                              actuals[a], benches[a]))
                 del ft; _free_gpu()
         else:                                            # joint
-            fit_task = model.build_joint_fit_task(frames, train_end)
+            fit_task = model.build_joint_fit_task(frames, train_end, train_start=tr_start)
             if fit_task is None:
                 continue
             ft = model.fit_lora([fit_task], HOR, ctx_steps, num_steps=num_steps)
@@ -208,17 +222,26 @@ def run_config_ft(cfg: configs.Config, start, end, cadence=1, ctx_days=63,
     if not rows:
         print(f"  {cfg.name}(ft): 0 Zeilen", file=sys.stderr)
         return None
-    path = out_dir / f"{cfg.name}.parquet"
+    suffix = f"__{only_area}" if split else ""
+    path = out_dir / f"{cfg.name}{suffix}.parquet"
     dfo = pd.concat(rows, ignore_index=True)
     dfo.to_parquet(path, index=False)
-    print(f"  {cfg.name}(ft): {n_fit} fits, {len(dfo)} rows -> {path.name}", file=sys.stderr)
+    print(f"  {cfg.name}{suffix}(ft): {n_fit} fits, {len(dfo)} rows -> {path.name}", file=sys.stderr)
     return path
 
 
 def _free_gpu():
+    """GPU-Speicher zwischen sequentiellen LoRA-Fits moeglichst vollstaendig freigeben.
+    Wichtig auf ROCm: G2/G3-Configs machen ~50 Fits pro Prozess (Zonen x Refits);
+    akkumulierter Allocator-/HIP-Context-Zustand kann sonst 'illegal memory access'
+    (HIP Error 700) ausloesen -- kein OOM (VRAM bleibt <20%), sondern Fragmentierung."""
     try:
         import gc
         import torch
-        gc.collect(); torch.cuda.empty_cache()
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()                      # ausstehende Kernels abschliessen
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
     except Exception:
         pass

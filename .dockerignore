@@ -1,10 +1,14 @@
 .git
 .venv
 data
-experiments/out
-experiments/out_ft
+results
+experiments/out*
 __pycache__
 *.pyc
 .env
 *.tar.zst
-scripts/**/*.png
+scripts/
+*.log
+*.aux
+*.pdf
+*.png

@@ -1,0 +1,9 @@
+run,config,area,seed,attempt,num_steps,batch_size,ctx_days,lr,seconds
+run2_g1_c1_c5,G1_C1,_all,202,1,300,8,63,1e-5,427
+run2_g1_c1_c5,G1_C2.3,_all,202,1,300,8,63,1e-5,1172
+run2_g1_c1_c5,G1_C3.1,_all,202,1,300,8,63,1e-5,433
+run2_g1_c1_c5,G1_C3.2,_all,202,1,300,8,63,1e-5,433
+run2_g1_c1_c5,G1_C3.3,_all,202,1,300,8,63,1e-5,433
+run2_g1_c1_c5,G1_C3.4,_all,202,1,300,8,63,1e-5,445
+run2_g1_c1_c5,G1_C4,_all,202,1,300,8,63,1e-5,535
+run2_g1_c1_c5,G1_C5,_all,202,1,300,8,63,1e-5,870

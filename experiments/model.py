@@ -22,6 +22,56 @@ FREQ = "15min"
 MODEL = "amazon/chronos-2"
 _PIPE = None
 
+# Bundesweite DE-Feiertage 2023--2026 + de-facto lastreduzierte Tage (24./31.12).
+# Als known-future-Covariate (Feiertage sind im Voraus bekannt).
+_DE_HOLIDAYS = frozenset({
+    "2023-01-01", "2023-04-07", "2023-04-10", "2023-05-01", "2023-05-18", "2023-05-29",
+    "2023-10-03", "2023-12-24", "2023-12-25", "2023-12-26", "2023-12-31",
+    "2024-01-01", "2024-03-29", "2024-04-01", "2024-05-01", "2024-05-09", "2024-05-20",
+    "2024-10-03", "2024-12-24", "2024-12-25", "2024-12-26", "2024-12-31",
+    "2025-01-01", "2025-04-18", "2025-04-21", "2025-05-01", "2025-05-29", "2025-06-09",
+    "2025-10-03", "2025-12-24", "2025-12-25", "2025-12-26", "2025-12-31",
+    "2026-01-01", "2026-04-03", "2026-04-06", "2026-05-01", "2026-05-14", "2026-05-25",
+    "2026-10-03", "2026-12-24", "2026-12-25", "2026-12-26", "2026-12-31",
+})
+
+
+def _calendar_feature(index, name):
+    """Kalender-Covariate aus dem (UTC-)Zeitindex, aligned zur UTC-Liefertag-Logik."""
+    idx = pd.DatetimeIndex(index)
+    if name in ("holiday", "bridge", "pre_holiday", "post_holiday", "xmas"):
+        days = idx.normalize()
+        one = pd.Timedelta(days=1)
+        hol = lambda d: d.strftime("%Y-%m-%d") in _DE_HOLIDAYS
+        vals = {}
+        for d in days.unique():
+            prev, nxt = d - one, d + one
+            if name == "holiday":
+                v = hol(d)
+            elif name == "pre_holiday":                # Tag vor Feiertag (selbst keiner)
+                v = not hol(d) and hol(nxt)
+            elif name == "post_holiday":               # Tag nach Feiertag (selbst keiner)
+                v = not hol(d) and hol(prev)
+            elif name == "bridge":                     # Brueckentag: Werktag zwischen
+                v = (d.dayofweek < 5 and not hol(d)    # Feiertag und Wochenende/Feiertag
+                     and ((hol(prev) and (nxt.dayofweek >= 5 or hol(nxt)))
+                          or (hol(nxt) and (prev.dayofweek >= 5 or hol(prev)))))
+            else:                                      # xmas: 24.12. bis 01.01.
+                v = (d.month == 12 and d.day >= 24) or (d.month == 1 and d.day == 1)
+            vals[d] = 1.0 if v else 0.0
+        return np.array([vals[d] for d in days], dtype="float32")
+    if name == "weekend":
+        return (idx.dayofweek >= 5).astype("float32")
+    if name in ("dow_sin", "dow_cos"):                 # Wochentag zyklisch (7-Tage-Periode)
+        dow = idx.dayofweek.to_numpy()
+        fn = np.sin if name == "dow_sin" else np.cos
+        return fn(2 * np.pi * dow / 7).astype("float32")
+    if name in ("doy_sin", "doy_cos"):                 # Tag im Jahr zyklisch (Jahres-Saison)
+        doy = idx.dayofyear.to_numpy()
+        fn = np.sin if name == "doy_sin" else np.cos
+        return fn(2 * np.pi * doy / 365.25).astype("float32")
+    raise ValueError(f"unbekanntes Kalender-Feature {name!r}")
+
 
 def pipe():
     """Lazy-Singleton der Chronos-2-Pipeline (Device via env DEVICE, default cuda)."""
@@ -44,15 +94,26 @@ def area_columns(cfg: configs.Config, area: str):
     return cfg.weather, ta, ka, pa
 
 
-def area_frame(cfg: configs.Config, area: str):
+def area_frame(cfg: configs.Config, area: str, include_future: bool = False):
     """DataFrame + Spaltenlisten fuer ein Gebiet.
     Returns (df, target_cols, known_cov, past_cov)."""
     w, ta, ka, pa = area_columns(cfg, area)
-    df = data.frame(area, w, tuple(ta + ka + pa))
+    df = data.frame(area, w, tuple(ta + ka + pa), include_future=include_future)
     target_cols = ["target"] + [f"aux_{a}" for a in ta]
     weather_cols = [c for c in df.columns if c != "target" and not c.startswith("aux_")]
     known_cov = weather_cols + [f"aux_{a}" for a in ka]
     past_cov = [f"aux_{a}" for a in pa]
+    for name in cfg.calendar:                          # known-future Kalender-Features
+        col = f"cal_{name}"
+        df[col] = _calendar_feature(df.index, name)
+        known_cov.append(col)
+    # FT_PAD_COVARIATES (env): n konstante Null-Covariaten anhaengen. Informationsfrei;
+    # einziger Zweck: die Covariaten-ANZAHL verschieben, wenn eine Config einen kaputten
+    # ROCm-Kernel-Bucket trifft (deterministischer HIP-Crash im LoRA-Backward).
+    for i in range(int(os.environ.get("FT_PAD_COVARIATES", "0") or 0)):
+        col = f"cal_pad{i}"
+        df[col] = np.float32(0.0)
+        known_cov.append(col)
     return df, target_cols, known_cov, past_cov
 
 
@@ -127,10 +188,12 @@ def predict(tasks, horizon, batch_size=256, model_pipe=None):
 
 # --- Finetuning (LoRA auf 2023) ---------------------------------------------
 
-def build_fit_task(df: pd.DataFrame, train_end: pd.Timestamp, target_cols, known_cov, past_cov):
-    """Fit-Task aus dem Trainingszeitraum (< train_end, d.h. nur 2023). Ganze Reihe;
-    Chronos-2 sampelt intern Fenster. future_covariates=None markiert known-future."""
-    tr = df.loc[:train_end]
+def build_fit_task(df: pd.DataFrame, train_end: pd.Timestamp, target_cols, known_cov, past_cov,
+                   train_start=None):
+    """Fit-Task aus dem Trainingszeitraum (< train_end). Ganze Reihe; Chronos-2 sampelt
+    intern Fenster. future_covariates=None markiert known-future.
+    train_start: optionaler Fensterbeginn (Rolling Window statt Expanding)."""
+    tr = df.loc[train_start:train_end] if train_start is not None else df.loc[:train_end]
     if len(tr) < 96 * 70:                               # < ~70 Tage -> zu wenig
         return None
     tgt = tr[target_cols].to_numpy("float32")
@@ -143,10 +206,11 @@ def build_fit_task(df: pd.DataFrame, train_end: pd.Timestamp, target_cols, known
     return task
 
 
-def build_joint_fit_task(frames: dict, train_end):
+def build_joint_fit_task(frames: dict, train_end, train_start=None):
     common = None
     for _, (df, *_ ) in frames.items():
-        idx = df.loc[:train_end].index
+        idx = (df.loc[train_start:train_end] if train_start is not None
+               else df.loc[:train_end]).index
         common = idx if common is None else common.intersection(idx)
     if common is None or len(common) < 96 * 70:
         return None
@@ -171,8 +235,23 @@ def build_joint_fit_task(frames: dict, train_end):
 def fit_lora(fit_tasks, horizon, ctx_steps, num_steps=500, lr=1e-5,
              batch_size=8, out_dir=None):
     """LoRA-Finetuning; gibt die finetunte Pipeline zurueck (direkt nutzbar).
-    tf32=False fuer ROCm/AMD-Kompatibilitaet."""
+    tf32=False fuer ROCm/AMD-Kompatibilitaet.
+    FT_BATCH_SIZE (env) uebersteuert batch_size (Auto-Retry bei HIP/OOM: 8->4).
+    FT_SEED (env) setzt Trainings-Seed (Adapter-Init, Sampling, Trainer) fuer
+    reproduzierbare, aber zwischen Wiederholungslaeufen unterschiedliche Ergebnisse."""
+    batch_size = int(os.environ.get("FT_BATCH_SIZE", batch_size))
+    lr = float(os.environ.get("FT_LR", lr))              # Stabilitaets-Fallback bei NaN-Loss
+    extra = {}
+    seed_env = os.environ.get("FT_SEED")
+    if seed_env:                                         # leer/None -> Default-Seed
+        import torch
+        seed = int(seed_env)
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+        np.random.seed(seed)
+        extra["seed"] = seed                             # -> HF TrainingArguments.seed
     return pipe().fit(fit_tasks, prediction_length=horizon, finetune_mode="lora",
                       context_length=ctx_steps, learning_rate=lr, num_steps=num_steps,
                       batch_size=batch_size, output_dir=out_dir,
-                      remove_printer_callback=True, tf32=False)
+                      remove_printer_callback=True, tf32=False, **extra)

@@ -31,7 +31,7 @@ WIND_ONSHORE_FILTER = 4067
 WIND_OFFSHORE_FILTER = 1225
 RES = "hour"
 
-START = "2024-01-01"                      # aux-Reihen ab 2024
+START = "2023-01-01"                      # aux-Reihen ab 2023 (v2: 2023 mittrainieren)
 
 
 def _end() -> str:

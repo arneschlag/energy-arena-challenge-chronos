@@ -1,0 +1,4 @@
+run,config,seed,attempt,num_steps,batch_size,ctx_days,lr,seconds
+run2_g1_c1_c5,G1_combo_b16,202,1,300,8,63,1e-5,656
+run2_g1_c1_c5,G1_aux_all_b16,202,1,300,8,63,1e-5,591
+run2_g1_c1_c5,G1_trends_grillen,202,1,300,8,63,1e-5,508

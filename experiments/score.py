@@ -122,6 +122,8 @@ def score_all(out_csv=None, out_dir: Path = OUT) -> pd.DataFrame:
     out_dir = Path(out_dir)
     parts = []
     for p in sorted(out_dir.glob("*.parquet")):
+        if "__" in p.stem:                   # Zonen-Partial (ft_run_config) -> ueberspringen
+            continue
         r = score_config(p.stem, out_dir)
         if not r.empty:
             parts.append(r)

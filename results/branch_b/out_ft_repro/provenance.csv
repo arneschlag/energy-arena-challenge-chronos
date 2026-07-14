@@ -1,0 +1,4 @@
+run,config,seed,attempt,num_steps,batch_size,ctx_days,lr,seconds
+repro,G1_aux_all_b16,42,1,300,8,63,1e-5,574
+repro,G1_trends_grillen,42,1,300,8,63,1e-5,495
+repro,G1_combo_b16,42,1,300,8,63,1e-5,660

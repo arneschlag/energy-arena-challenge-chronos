@@ -7,7 +7,7 @@ Zwei Produkte, beide JE ZELLE gespeichert (Aggregation -> aggregate.py):
             -> data/historical/{hex}_{jahr}.csv   (2023-2025 voll; 2026 bis Stichtag)
 
   refresh   rollierend fuer den Betrieb: Forecast-Endpoint mit past_days (Luecken der
-            letzten Tage schliessen) + forecast_days (naechste 2 Tage), je Zelle in
+            letzten Tage schliessen) + forecast_days (naechste Tage), je Zelle in
             die Jahres-CSVs gemergt (neuer Wert gewinnt). -> data/historical/{hex}_{jahr}.csv
 
   ensemble  DWD ICON-D2-EPS, 20 Member, ~48 h Horizont (Wetter-Unsicherheit)
@@ -17,7 +17,7 @@ Zwei Produkte, beide JE ZELLE gespeichert (Aggregation -> aggregate.py):
 Aufruf:
     python -m loaders.weather point                    # Voll-Backfill je Jahr
     python -m loaders.weather point --years 2026
-    python -m loaders.weather refresh                  # Luecken + naechste 2 Tage
+    python -m loaders.weather refresh                  # Luecken + naechste Tage
     python -m loaders.weather refresh --past-days 30
     python -m loaders.weather ensemble                 # naechster Tag
     python -m loaders.weather ensemble --start 2026-06-05 --end 2026-06-07
@@ -109,7 +109,7 @@ def download_point(years: list[int]) -> None:
                 time.sleep(SLEEP)
 
 
-# --- Rollierender Refresh (Luecken schliessen + naechste 2 Tage) -------------
+# --- Rollierender Refresh (Luecken schliessen + naechste Tage) ---------------
 
 def _merge_point_csv(h3_index: str, tso: str, df: pd.DataFrame) -> None:
     """df (date + WEATHER_VARS) nach Jahr in die historical/{hex}_{jahr}.csv mergen.
@@ -129,9 +129,9 @@ def _merge_point_csv(h3_index: str, tso: str, df: pd.DataFrame) -> None:
         gy[cols].to_csv(path, index=False)
 
 
-def refresh_recent(past_days: int = 7, forecast_days: int = 2, chunk: int = 100) -> None:
+def refresh_recent(past_days: int = 7, forecast_days: int = 4, chunk: int = 100) -> None:
     """Punkt-Wetter rollierend aktualisieren: fuellt Luecken der letzten `past_days`
-    UND verlaengert um `forecast_days` (Standard 2) — je Zelle in die Jahres-CSVs
+    UND verlaengert um `forecast_days` (Standard 4) — je Zelle in die Jahres-CSVs
     gemergt. Multi-Location (Forecast-Endpoint), daher ~3 Requests fuer alle Zellen."""
     g = grid.download_cells()               # 224 dt. Zellen + LU-Solo-Zelle
     client = _point_client()

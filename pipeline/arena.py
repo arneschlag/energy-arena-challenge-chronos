@@ -22,10 +22,11 @@ import requests
 from loaders import config as lc
 from . import forecast
 
+lc.load_dotenv()
 ARENA_BASE = os.environ.get("ARENA_BASE", "https://api.energy-arena.org")
 ARENA_API_KEY = os.environ.get("ARENA_API_KEY", "")
 SUBMIT_ENABLED = os.environ.get("SUBMIT_ENABLED", "false").lower() == "true"
-SUBMIT_FORMATS = os.environ.get("SUBMIT_FORMATS", "quantile").split()
+SUBMIT_FORMATS = os.environ.get("SUBMIT_FORMATS", "point quantile ensemble").split()
 DELU_CHALLENGES = {"point": "20", "quantile": "22", "ensemble": "24"}
 REF_TZ = "Europe/Berlin"
 STATE = Path(os.environ.get("APP_BASE", lc.BASE)) / "pipeline_state.json"
@@ -53,20 +54,13 @@ def open_challenges() -> dict:
     return {c["challenge_id"]: c for c in r.json().get("active_challenges", [])}
 
 
-def _delivery_date(target_start: str) -> pd.Timestamp:
-    """Liefertag (UTC, normalisiert) aus dem Arena-target_start (DST-korrekt via Berlin)."""
-    ts = pd.Timestamp(target_start)
-    ts = ts.tz_convert(REF_TZ) if ts.tz else ts.tz_localize(REF_TZ)
-    return ts.tz_convert("UTC").normalize()
-
-
 def _values(fmt: str, zsamp: dict) -> list:
     if fmt == "quantile":
         q = forecast.delu_quantiles(zsamp)                      # (5, 96)
         return [q[:, t].round(3).tolist() for t in range(q.shape[1])]
     if fmt == "point":
         p = forecast.delu_point(zsamp)                          # (96,)
-        return [[round(float(v), 3)] for v in p]
+        return [round(float(v), 3) for v in p]
     if fmt == "ensemble":
         e = forecast.delu_ensemble(zsamp)                       # (100, 96)
         return [e[:, t].round(3).tolist() for t in range(e.shape[1])]
@@ -75,7 +69,8 @@ def _values(fmt: str, zsamp: dict) -> list:
 
 def _post(challenge_id: str, target_start: str, values: list):
     if not (SUBMIT_ENABLED and ARENA_API_KEY):
-        print(f"[DRY] challenge {challenge_id}: {len(values)}x{len(values[0])} "
+        width = len(values[0]) if values and isinstance(values[0], list) else 1
+        print(f"[DRY] challenge {challenge_id}: {len(values)}x{width} "
               f"(SUBMIT_ENABLED={SUBMIT_ENABLED}, key={'ja' if ARENA_API_KEY else 'nein'})",
               file=sys.stderr)
         return 0, "dry-run"
@@ -89,8 +84,7 @@ def submit(target_start: str, formats=None) -> str:
     """Forecast fuer den Liefertag von `target_start` erstellen und die gewaehlten
     Formate einreichen (bzw. Dry-Run)."""
     formats = formats or SUBMIT_FORMATS
-    D = _delivery_date(target_start)
-    zsamp, _ = forecast.zone_samples(delivery_date=D)
+    zsamp, _ = forecast.zone_samples(delivery_date=target_start)
     ch = open_challenges()
     out = []
     for fmt in formats:
@@ -100,6 +94,8 @@ def submit(target_start: str, formats=None) -> str:
         code, resp = _post(cid, target_start, _values(fmt, zsamp))
         out.append(f"{fmt}#{cid}:{code}")
         print(f"  {fmt} (#{cid}) target_start={target_start} -> {code}", file=sys.stderr)
+        if code >= 400:
+            print(f"    response: {resp}", file=sys.stderr)
     return " ".join(out) or "no-matching-challenge"
 
 

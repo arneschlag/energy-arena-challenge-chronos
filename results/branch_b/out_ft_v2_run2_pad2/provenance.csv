@@ -1,0 +1,3 @@
+run,config,area,seed,attempt,num_steps,batch_size,ctx_days,lr,seconds
+run2_recovery_pad2,G1_C2.1,_all,203,1,300,8,63,1e-5,756
+run2_recovery_pad2,G1_C2.2,_all,203,1,300,8,63,1e-5,503

@@ -1,8 +1,15 @@
 .env
 .cache*
 data/
+data-snapshot-*.tar.zst
 .venv/
 __pycache__/
 *.pyc
 # grosse, regenerierbare Forecast-Samples (results.csv + Plots bleiben getrackt)
 experiments/out*/*.parquet
+experiments/out*/
+scripts/report/
+scripts/plot_*/
+*.log
+*.aux
+*.pdf

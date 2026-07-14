@@ -1,4 +1,4 @@
-# Day-Ahead-Lastprognose DE-LU — Chronos-2-Pipeline
+# Day-Ahead-Lastprognose DE-LU - Chronos-2-Pipeline
 
 Vollautomatische Day-ahead-Lastprognose für die **DE-LU-Gebotszone** mit Amazon
 **Chronos-2**: holt selbst alle Daten (Wetter, ENTSO-E-Last, SMARD-Markt), erstellt
@@ -8,13 +8,13 @@ von allein.
 
 ---
 
-## 🚀 Schnellstart — alles automatisch (Windows & Linux)
+## Schnellstart - alles automatisch (Windows & Linux)
 
 ### Voraussetzungen
 - **Docker** inkl. Docker Compose. Unter **Windows**: *Docker Desktop* mit WSL2-Backend.
 - **Eine GPU** (empfohlen):
-  - **NVIDIA** — aktueller Treiber; Linux: *NVIDIA Container Toolkit*, Windows: Docker Desktop + WSL2 genügt.
-  - **AMD** — ROCm-fähige GPU unter **Linux** (AMD-GPU-Passthrough unter Windows wird nicht unterstützt).
+  - **NVIDIA** - aktueller Treiber; Linux: *NVIDIA Container Toolkit*, Windows: Docker Desktop + WSL2 genuegt.
+  - **AMD** - ROCm-faehige GPU unter **Linux** (AMD-GPU-Passthrough unter Windows wird nicht unterstuetzt).
   - **Ohne GPU** läuft es auf CPU (`DEVICE=cpu` in `.env`), nur deutlich langsamer.
 - **ENTSO-E-API-Key** (kostenlos): https://transparency.entsoe.eu → *Account Settings → Web Api Security Token*.
 
@@ -57,12 +57,14 @@ persistiert, überstehen also Neustarts.
 ### Was dann automatisch passiert
 | Zeit (UTC) | Job |
 |---|---|
-| stündlich `:05` | **Daten-Refresh** — Wetter (inkl. Vorhersage der nächsten Tage), ENTSO-E-Last, SMARD-Markt, Aggregation |
+| stündlich `:05` | **Daten-Refresh** - Punktwetter-Forecasts, ENTSO-E-Last, SMARD-Markt, Aggregation |
 | stündlich `:20` | **Prognose** des nächsten Liefertags + **Abgabe** an die Energy Arena, sobald ein Fenster offen ist (Dedup, DST-korrekt) |
 
-### Modell wählen (`PROD_CONFIG` in `.env`)
-- **`G2_C2.2`** *(Default)* — 5 Regionen + bevölkerungsgewichtetes Wetter. **Robust**: braucht nur die Wettervorhersage.
-- **`G2_C4`** — im Backtest bestes (Wetter + Preis/Solar/Wind als Input). Minimal besser, braucht aber den **Day-ahead-Preis** des Liefertags zur Abgabezeit.
+### Modell waehlen (`PROD_CONFIG` in `.env`)
+- **`G1_C5`** *(Default / Submission-Champion)* - ein DE-LU-Gesamtmodell mit
+  Punktwetter-Forecasts, past-only Preis/Solar/Wind und Kalenderfeatures.
+- **`G1_C1`** - univariat, nur historische Last. Robustester Fallback, wenn Wetter- oder
+  Aux-Daten nicht aktuell sind.
 - Alle Varianten: `experiments/configs.py`.
 
 ---
@@ -81,7 +83,7 @@ python -m pipeline.orchestrator        # dieselbe Automatik wie im Container
 Drei Ebenen — versioniert und reproduzierbar:
 
 1. **`loaders/`** — Daten holen & aufbereiten.
-2. **`experiments/`** — Backtests (Zero-Shot & Finetuning) über 27 Config-Familien mit den Energy-Arena-Metriken.
+2. **`experiments/`** — Backtests (Zero-Shot & Finetuning) über 33 Configs mit den Energy-Arena-Metriken.
 3. **`pipeline/`** — Live-Betrieb: `forecast` → `arena` (Submit) → `orchestrator` (Scheduler).
 
 ```
@@ -89,8 +91,8 @@ code/
 ├── pipeline/       forecast.py  arena.py  orchestrator.py   (Live: Prognose + Abgabe)
 ├── loaders/        config grid weather aggregate loads market schedule   (Daten)
 ├── experiments/    configs data model metrics walkforward score run      (Backtests)
+├── results/        gespeicherte Experiment-Ergebnisse (Parquet/CSV, nicht im Docker-Image)
 ├── reference/      germany_h3_res4.csv  cell_population.csv               (statische Eingaben)
-├── scripts/        plot_h3/ (H3-Karten)  plot_results/ (Ergebnis-Plots)
 ├── docker/         Dockerfile (AMD/NVIDIA)  docker-compose.yml  entrypoint.sh
 └── data/           erzeugte Ausgaben (git-ignoriert; via Snapshot sicherbar)
 ```
@@ -121,21 +123,38 @@ python -m loaders.grid                 # Kontrolle: Zellen, Gewichte, Centroids
 
 ## Backtests & Ergebnisse (`experiments/`)
 
-27 Config-Familien = **3 Granularitäten** (whole / region-indep / region-joint) ×
-**9 Eingabe-Varianten** (C1 nur Last, C2.1/2.2/2.3 Wetter aus 1 Zelle / pop-Mittel /
-4 Zellen, C3.1–3.4 Aux als Multitask-Ziel, C4 alles als Input). Zero-shot, Walk-Forward
+33 Config-Familien = **3 Granularitaeten** (whole / region-indep / region-joint) x
+**11 Eingabe-Varianten** (C1 nur Last, C2.1/2.2/2.3 Wetter aus 1 Zelle / pop-Mittel /
+4 Zellen, C3.1-3.4 Aux als Multitask-Ziel, C4 Wetter + past-only Marktinput,
+C5 C4 + Kalender, C6 nur Kalender). Zero-shot, Walk-Forward
 2024–2026, Metriken: **RMSE, R², WIS, LQS, MAE-Median, Cov50/95, CRPS, Energy Score**;
 Benchmark = ENTSO-E-Day-ahead-Prognose.
 
 ```bash
 # im GPU-Container:
 python -m experiments.run run --config all --start 2024-01-01 --end 2026-06-01 --score
-python -m experiments.run finetune --config all      # Rolling-Window-LoRA (expanding)
-python scripts/plot_results/plot_results.py          # Ergebnis-Plots
+python -m experiments.run finetune --config G1 --start 2024-01-01 --end 2026-06-01 \
+  --num-steps 300 --refit-months 3 --train-window-months 12 --out-dir out_ft
+python -m experiments.run score --dir out_ft --out experiments/out_ft/results.csv
 ```
-**Kernbefund (zero-shot):** Chronos-2 schlägt ENTSO-E **probabilistisch** klar
-(WIS ~1070 vs 2030), ist beim **Punkt-RMSE** knapp dahinter; bestes `G2_C4`, Wetter
-hilft (pop-Mittel am besten), Aux-als-Ziel hilft zero-shot nicht.
+
+Gespeicherte Ergebnisartefakte fuer die oeffentliche Version liegen getrennt vom Code unter
+`results/branch_b/`. Die Trainings-/Scoring-CLI schreibt standardmaessig weiter nach
+`experiments/out*`; fuer neue Veroeffentlichungsartefakte kann `--out-dir` auf einen
+separaten Ordner gesetzt und das Ergebnis anschliessend nach `results/` kopiert werden.
+
+Die empfohlene Submission nutzt bewusst **Punktwetter-Forecasts als Chronos-Input**,
+nicht die ICON-D2-Ensemble-Wetterdaten. Als Output reichen wir weiterhin alle drei
+Energy-Arena-Formate ein: `point`, `quantile` und `ensemble`.
+
+Finetuning nutzt Chronos-2-LoRA. Auf ROCm kann `FT_PAD_COVARIATES=2` fuer einzelne
+Covariate-Anzahlen noetig sein; das fuegt informationsfreie Null-Covariaten hinzu und
+umgeht bekannte HIP-Backward-Crashes.
+
+**Kernbefund:** Chronos-2 schlaegt ENTSO-E probabilistisch klar. Fuer Submission ist
+`G1_C5` der Default-Champion (DE-LU-Gesamtmodell mit Punktwetter, past-only
+Preis/Solar/Wind und Kalenderfeatures). `G1_C1` bleibt der robuste univariate Fallback,
+falls Wetter- oder Aux-Daten nicht aktuell sind.
 
 ---
 
