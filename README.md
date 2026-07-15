@@ -158,6 +158,12 @@ falls Wetter- oder Aux-Daten nicht aktuell sind.
 
 ---
 
+## Lizenz
+Apache License 2.0 (siehe `LICENSE`) — dieselbe Lizenz wie das verwendete
+Chronos-2-Modell (`amazon/chronos-2`, chronos-forecasting).
+
+---
+
 ## Daten-Snapshot (Backup / Weitergabe)
 `data/` (~2,8 GB) ist git-ignoriert. Als komprimiertes Archiv sichern (zstd, ~600 MB):
 ```bash

@@ -13,3 +13,7 @@ scripts/plot_*/
 *.log
 *.aux
 *.pdf
+
+# Ergebnis-Parquets bleiben lokal (nur CSV-Metriken sind getrackt)
+results/**/*.parquet
+.claude/

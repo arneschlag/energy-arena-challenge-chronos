@@ -15,8 +15,16 @@ Contents:
 - `out_repro_run2/`: second zero-shot run for the three repro configs.
 - `out_ft_repro_run2/`: second LoRA run for the three repro configs.
 
-Each run folder stores Chronos samples as Parquet plus an aggregated `results.csv`.
-The code that generated and scores these artifacts lives in `experiments/`.
+Each run folder stores an aggregated `results.csv` (plus `provenance.csv` with
+seed, steps, batch size, context and runtime per run). The underlying Chronos
+sample Parquets (~50 MB per config) are not tracked in git; they can be
+regenerated with the `experiments/` CLI documented in the top-level README or
+requested from the author.
+
+Note: the tables in the accompanying seminar paper were produced from an
+earlier scoring run against a slightly older ENTSO-E data state; zero-shot
+runs are bit-reproducible given identical input data, but revised actual-load
+values can shift scores by a few tenths of a percent.
 
 Note: `out_ft_v2_run2_pad2` uses two constant zero known covariates as a ROCm
 compatibility workaround. Treat those rows as recovery results, not as strict
