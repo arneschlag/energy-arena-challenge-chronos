@@ -7,6 +7,7 @@ Wettervariablen. Ersetzt die frueher ueber mehrere Skripte kopierten Konstanten
 from __future__ import annotations
 
 import os
+import tempfile
 from pathlib import Path
 
 # --- Pfade ------------------------------------------------------------------
@@ -100,3 +101,34 @@ def entsoe_key() -> str:
     """ENTSO-E-Token aus Umgebung/.env holen (leer, wenn nicht gesetzt)."""
     load_dotenv()
     return os.environ.get("ENTSOE_API_KEY", "")
+
+
+def atomic_to_csv(frame, path: str | os.PathLike, **kwargs) -> None:
+    """CSV im selben Verzeichnis schreiben und erst vollstaendig ersetzen.
+
+    Damit bleibt bei Containerabbruch oder vollem Dateisystem immer die letzte
+    vollstaendige Version sichtbar. Der zusaetzliche Data-Lock koordiniert
+    weiterhin mehrere Dateien eines Refresh-Laufs.
+    """
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", newline="", dir=destination.parent,
+            prefix=f".{destination.name}.", suffix=".tmp", delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            frame.to_csv(handle, **kwargs)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, destination)
+        temporary = None
+        directory_fd = os.open(destination.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)

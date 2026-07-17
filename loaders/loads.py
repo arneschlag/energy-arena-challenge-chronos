@@ -36,7 +36,7 @@ def _write_query(df: pd.DataFrame, valcol: str, tso: str, out_dir, year: int) ->
     df.columns = ["date" if i == 0 else valcol for i in range(len(df.columns))]
     df.insert(0, "tso", tso)
     out_dir.mkdir(parents=True, exist_ok=True)
-    df.to_csv(out_dir / f"{tso}_{year}.csv", index=False)
+    config.atomic_to_csv(df, out_dir / f"{tso}_{year}.csv", index=False)
     return len(df)
 
 
@@ -54,7 +54,10 @@ def download(years: list[int], token: str, actual=True, forecast=True) -> None:
                         n = _write_query(df, "actual_load_mw", tso, config.DATA_LOADS, year)
                         print(f"  Ist  {tso} {year}: {n} Zeilen", file=sys.stderr)
                     except Exception as exc:
-                        print(f"  FEHLER Ist {tso} {year}: {exc}", file=sys.stderr)
+                        print(
+                            f"  FEHLER Ist {tso} {year}: {type(exc).__name__}",
+                            file=sys.stderr,
+                        )
                         time.sleep(2.0)
                     time.sleep(SLEEP)
             if forecast:
@@ -66,7 +69,10 @@ def download(years: list[int], token: str, actual=True, forecast=True) -> None:
                         n = _write_query(df, "forecast_load_mw", tso, config.DATA_FCAST, year)
                         print(f"  Prog {tso} {year}: {n} Zeilen", file=sys.stderr)
                     except Exception as exc:
-                        print(f"  FEHLER Prog {tso} {year}: {exc}", file=sys.stderr)
+                        print(
+                            f"  FEHLER Prog {tso} {year}: {type(exc).__name__}",
+                            file=sys.stderr,
+                        )
                         time.sleep(2.0)
                     time.sleep(SLEEP)
 
@@ -81,7 +87,8 @@ def _merge_csv(path, df: pd.DataFrame) -> None:
         old = pd.read_csv(path)
         old["date"] = pd.to_datetime(old["date"], utc=True)
         df = pd.concat([old, df], ignore_index=True)
-    df.drop_duplicates("date", keep="last").sort_values("date").to_csv(path, index=False)
+    merged = df.drop_duplicates("date", keep="last").sort_values("date")
+    config.atomic_to_csv(merged, path, index=False)
 
 
 def refresh_recent(days: int, token: str) -> None:
@@ -109,7 +116,7 @@ def refresh_recent(days: int, token: str) -> None:
                 _merge_csv(config.DATA_FCAST / f"{tso}_{y}.csv", gy)
             print(f"  refresh {tso}: {len(a)} Ist / {len(f)} Prognose", file=sys.stderr)
         except Exception as exc:
-            print(f"  FEHLER refresh {tso}: {exc}", file=sys.stderr)
+            print(f"  FEHLER refresh {tso}: {type(exc).__name__}", file=sys.stderr)
             time.sleep(2.0)
 
 
@@ -177,7 +184,11 @@ def fill_gaps(token: str, until: pd.Timestamp | None = None,
                     for y, gy in fd.groupby(fd.date.dt.year):
                         _merge_csv(config.DATA_FCAST / f"{tso}_{y}.csv", gy)
             except Exception as exc:
-                print(f"    FEHLER {tso} {st.date()}..{en.date()}: {exc}", file=sys.stderr)
+                print(
+                    f"    FEHLER {tso} {st.date()}..{en.date()}: "
+                    f"{type(exc).__name__}",
+                    file=sys.stderr,
+                )
                 time.sleep(2.0)
 
 
@@ -197,7 +208,7 @@ def reconcile_delu() -> pd.DataFrame:
     both["residual_mw"] = both["de_lu"] - both["zone_sum"]
     config.DATA_ANALYSIS.mkdir(parents=True, exist_ok=True)
     out = config.DATA_ANALYSIS / "delu_reconciliation.csv"
-    both.reset_index().to_csv(out, index=False)
+    config.atomic_to_csv(both.reset_index(), out, index=False)
 
     r = both["residual_mw"]
     pct = 100 * r.mean() / both["de_lu"].mean()
@@ -227,7 +238,9 @@ def derive_lu() -> None:
         if y not in config.DEFAULT_YEARS:      # Rand-Zeitstempel (z.B. 31.12. 23:00) ueberspringen
             continue
         config.DATA_LOADS.mkdir(parents=True, exist_ok=True)
-        gy.to_csv(config.DATA_LOADS / f"lu_derived_{y}.csv", index=False)
+        config.atomic_to_csv(
+            gy, config.DATA_LOADS / f"lu_derived_{y}.csv", index=False
+        )
     print(f"  lu_derived: {len(df)} Zeilen -> data/loads/lu_derived_*.csv", file=sys.stderr)
 
 

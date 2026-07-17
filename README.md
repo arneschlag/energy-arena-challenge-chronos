@@ -1,80 +1,132 @@
 # Day-Ahead-Lastprognose DE-LU - Chronos-2-Pipeline
 
-Vollautomatische Day-ahead-Lastprognose für die **DE-LU-Gebotszone** mit Amazon
-**Chronos-2**: holt selbst alle Daten (Wetter, ENTSO-E-Last, SMARD-Markt), erstellt
-täglich die Prognose und reicht sie bei der **Energy Arena** ein. Man braucht nur
-einen **GPU-Docker-Container (AMD oder NVIDIA)** und **API-Keys** — der Rest läuft
-von allein.
+Vollautomatische Day-ahead-Lastprognose für die **DE-LU-Gebotszone** mit
+**`amazon/chronos-2` (120 Mio. Parameter)**. Die AMD-Produktionsumgebung besteht
+aus einem CPU-Datendienst und
+zwei getrennten GPU-Workern: dem strikt univariaten **G1_C1** sowie **G3_C5** mit
+Group Attention, Wetter-, Auxiliary- und Kalenderdaten. Beide Worker verwenden
+eigene Energy-Arena-Accounts, Zustände und LoRA-Adapter.
 
 ---
 
-## Schnellstart - alles automatisch (Windows & Linux)
+## Schnellstart - drei AMD-Services
 
 ### Voraussetzungen
-- **Docker** inkl. Docker Compose. Unter **Windows**: *Docker Desktop* mit WSL2-Backend.
-- **Eine GPU** (empfohlen):
-  - **NVIDIA** - aktueller Treiber; Linux: *NVIDIA Container Toolkit*, Windows: Docker Desktop + WSL2 genuegt.
-  - **AMD** - ROCm-faehige GPU unter **Linux** (AMD-GPU-Passthrough unter Windows wird nicht unterstuetzt).
-  - **Ohne GPU** läuft es auf CPU (`DEVICE=cpu` in `.env`), nur deutlich langsamer.
+- **Docker** mit Docker Compose unter Linux.
+- Eine ROCm-faehige **AMD-GPU** mit Zugriff auf `/dev/kfd` und `/dev/dri`.
 - **ENTSO-E-API-Key** (kostenlos): https://transparency.entsoe.eu → *Account Settings → Web Api Security Token*.
+- Je ein **Energy-Arena-API-Key** fuer G1_C1 und G3_C5.
 
 ### In 3 Schritten
 
-**1) Repo holen und `.env` anlegen**
+**1) Repo holen und lokale Konfigurationsdateien anlegen**
 
 Linux / macOS:
 ```bash
-git clone <REPO-URL> && cd code
-cp .env.example .env
+git clone https://github.com/arneschlag/energy-arena-challenge-chronos.git
+cd energy-arena-challenge-chronos
+cp docker/env/data.local.env.example docker/env/data.local.env
+cp docker/env/g1-c1.local.env.example docker/env/g1-c1.local.env
+cp docker/env/g3-c5.local.env.example docker/env/g3-c5.local.env
 ```
-Windows (PowerShell):
-```powershell
-git clone <REPO-URL>; cd code
-copy .env.example .env
-```
-Dann `.env` öffnen und **`ENTSOE_API_KEY`** eintragen. Für die **echte Abgabe** zusätzlich
-`ARENA_API_KEY` setzen und `SUBMIT_ENABLED=true`. (Ohne das läuft alles als **Dry-Run** —
-es wird gerechnet, aber nichts gesendet.)
 
-**2) Container starten** (Profil je nach GPU)
+In `data.local.env` kommt nur der ENTSO-E-Key sowie gegebenenfalls die
+SMTP-Konfiguration. Die beiden Arena-Keys kommen getrennt nach
+`g1-c1.local.env` beziehungsweise `g3-c5.local.env`. Echte Secrets werden weder
+committet noch in das Image kopiert.
+
+`SUBMIT_ENABLED` bleibt fuer den Erststart in beiden Worker-Dateien auf `false`.
+So laufen Forecast und API-Validierung als **Dry-Run**, ohne eine Live-Abgabe.
+
+**2) Die drei Container starten**
+
 ```bash
-# NVIDIA
-docker compose -f docker/docker-compose.yml --profile nvidia up -d --build
-# AMD (Linux)
-docker compose -f docker/docker-compose.yml --profile amd    up -d --build
+REPO_COMMIT="$(git rev-parse HEAD)" \
+  docker compose -f docker/docker-compose.yml up -d --build
+docker compose -f docker/docker-compose.yml ps
+docker compose -f docker/docker-compose.yml logs -f \
+  ea-data-summary ea-g1-c1 ea-g3-c5
 ```
 
-**3) Fertig.** Logs mitverfolgen:
+`ea-data-summary` ist der einzige Prozess mit Schreibzugriff auf `data/`. Die
+beiden Worker mounten dieselben Daten read-only. Getrennte State-/Adapter-Volumes,
+ein gemeinsamer HuggingFace-Cache und ein gemeinsamer GPU-Lock bleiben ueber
+Neustarts erhalten.
+
+**3) Initial trainieren, Dry-Run pruefen und Live-Abgabe freigeben**
+
+Nach dem erfolgreichen Daten-Backfill werden die beiden Adapter einmal manuell
+und nacheinander erzeugt:
+
 ```bash
-docker compose -f docker/docker-compose.yml logs -f
+docker compose -f docker/docker-compose.yml exec ea-g1-c1 python -m pipeline.finetune
+docker compose -f docker/docker-compose.yml exec ea-g3-c5 python -m pipeline.finetune
 ```
 
-Beim **ersten Start** lädt der Container automatisch die historischen Daten (einmalig,
-dauert je nach Verbindung). Danach hält er alles stündlich frisch und reicht täglich ein.
-Daten (`data/`) und das Chronos-2-Modell (HuggingFace-Cache) werden in Docker-Volumes
-persistiert, überstehen also Neustarts.
+`REQUIRE_ADAPTER=true` verhindert, dass ein fehlender oder ungueltiger Adapter
+unbemerkt als Zero-Shot-Modell weiterlaeuft. Erst wenn beide Fine-Tunings und ein
+Dry-Run erfolgreich waren, wird in der jeweiligen `*.local.env` separat
+`SUBMIT_ENABLED=true` gesetzt und nur der betreffende Worker neu erstellt:
+
+```bash
+docker compose -f docker/docker-compose.yml up -d --force-recreate ea-g1-c1 ea-g3-c5
+```
+
+Auch nach einem Neustart erfolgt keine sofortige Abgabe; der erste Versuch wartet
+auf den naechsten konfigurierten Scheduler-Termin.
 
 ### Was dann automatisch passiert
-| Zeit (UTC) | Job |
+| Zeit | Job |
 |---|---|
-| stündlich `:05` | **Daten-Refresh** - Punktwetter-Forecasts, ENTSO-E-Last, SMARD-Markt, Aggregation |
-| stündlich `:20` | **Prognose** des nächsten Liefertags + **Abgabe** an die Energy Arena, sobald ein Fenster offen ist (Dedup, DST-korrekt) |
+| stündlich `:45` UTC | `ea-data-summary`: ENTSO-E-Last aktualisieren |
+| `06:00`, `08:00`, `09:00` UTC | Wetter aktualisieren und regional aggregieren |
+| `08:20`, `09:20` UTC | Preis/Solar/Wind aktualisieren (Sommer- und Winterzeitfenster) |
+| `:00`, `:20`, `:40` UTC | `ea-g1-c1`: G1_C1 pruefen und bei Faelligkeit prognostizieren/einreichen |
+| `:10`, `:30`, `:50` UTC | `ea-g3-c5`: G3_C5 pruefen und bei Faelligkeit prognostizieren/einreichen |
+| täglich `11:55` Europe/Berlin | Gemeinsame Statusmail mit getrennten Modellabschnitten |
+| 1. Jan./Apr./Jul./Okt. `07:10` | Quartalsweises G1_C1-LoRA-Fine-Tuning (UTC) |
+| 1. Jan./Apr./Jul./Okt. `07:30` | Quartalsweises G3_C5-LoRA-Fine-Tuning (UTC) |
 
-### Modell waehlen (`PROD_CONFIG` in `.env`)
-- **`G1_C5`** *(Default / Submission-Champion)* - ein DE-LU-Gesamtmodell mit
-  Punktwetter-Forecasts, past-only Preis/Solar/Wind und Kalenderfeatures.
-- **`G1_C1`** - univariat, nur historische Last. Robustester Fallback, wenn Wetter- oder
-  Aux-Daten nicht aktuell sind.
-- Alle Varianten: `experiments/configs.py`.
+Die Zeiten sind in den nicht geheimen Dateien unter `docker/env/` konfigurierbar.
+Der GPU-Lock serialisiert Forecasts und Fine-Tunings beider Worker; ein
+Data-Read/Write-Lock verhindert Prognosen auf halb aktualisierten Dateien.
+
+### Fest zugeordnete Modelle
+
+Beide Rollen verwenden exakt `amazon/chronos-2`. Dieses Chronos-2-Modell hat
+120 Mio. Parameter; das groessere `chronos-t5-large` gehoert zur vorherigen
+Chronos-Generation und unterstuetzt den nativen G3-/Group-Attention-Pfad nicht.
+
+- **`ea-g1-c1` / `G1_C1`**: eine DE-LU-Lastreihe; keine Wetter- oder
+  Auxiliary-Loader im Worker.
+- **`ea-g3-c5` / `G3_C5`**: gemeinsames multivariates Modell der Regionen mit
+  Group Attention sowie den C5-Variablen.
+- Weitere Ablationsvarianten bleiben fuer reproduzierbare Experimente in
+  `experiments/configs.py`, werden aber nicht produktiv geplant.
+
+Chronos-2 liefert 21 native Quantilkurven und keine 21 Ensemble-Samples. Die
+Arena-Quantile werden deshalb direkt aus der Quantilfunktion interpoliert; die
+100 Ensemblepfade entstehen deterministisch an 100 gleichmaessigen
+inverse-CDF-Raengen. Fuer G3 wird derselbe Rang ueber Zeit und Regionen verwendet.
+Diese komonotone Kopplung ist eine explizite Abhaengigkeitsannahme, nicht ein vom
+Modell ausgegebenes gemeinsames Sample.
 
 ---
 
 ## Ohne Docker (lokale Entwicklung)
+
+Die Produktionsrollen bleiben auch lokal getrennte Prozesse. Beispielsweise in
+drei Terminals (mit jeweils passender Umgebung):
+
 ```bash
 pip install -r requirements.txt        # + torch und chronos-forecasting passend zur GPU
-cp .env.example .env                   # Keys eintragen
-python -m pipeline.orchestrator        # dieselbe Automatik wie im Container
+python -m pipeline.data_orchestrator
+PROD_CONFIG=G1_C1 python -m pipeline.worker_orchestrator
+PROD_CONFIG=G3_C5 python -m pipeline.worker_orchestrator
 ```
+
+Der alte gemischte `pipeline.orchestrator` ist nicht fuer die Drei-Service-
+Produktion vorgesehen.
 
 ---
 
@@ -84,16 +136,17 @@ Drei Ebenen — versioniert und reproduzierbar:
 
 1. **`loaders/`** — Daten holen & aufbereiten.
 2. **`experiments/`** — Backtests (Zero-Shot & Finetuning) über 33 Configs mit den Energy-Arena-Metriken.
-3. **`pipeline/`** — Live-Betrieb: `forecast` → `arena` (Submit) → `orchestrator` (Scheduler).
+3. **`pipeline/`** — Live-Betrieb: Forecast/Arena, getrennte Worker-/Daten-Scheduler,
+   LoRA-Fine-Tuning und Statusmail.
 
 ```
 code/
-├── pipeline/       forecast.py  arena.py  orchestrator.py   (Live: Prognose + Abgabe)
+├── pipeline/       forecast, arena, finetune, worker/data orchestrator, status
 ├── loaders/        config grid weather aggregate loads market schedule   (Daten)
 ├── experiments/    configs data model metrics walkforward score run      (Backtests)
 ├── results/        gespeicherte Experiment-Ergebnisse (Parquet/CSV, nicht im Docker-Image)
 ├── reference/      germany_h3_res4.csv  cell_population.csv               (statische Eingaben)
-├── docker/         Dockerfile (AMD/NVIDIA)  docker-compose.yml  entrypoint.sh
+├── docker/         AMD-Dockerfile  Drei-Service-Compose  rollenbasierter Entrypoint
 └── data/           erzeugte Ausgaben (git-ignoriert; via Snapshot sicherbar)
 ```
 Alles UTC, 15-minütig (Aux stündlich). Konstanten/Pfade zentral in `loaders/config.py`.
@@ -143,18 +196,18 @@ Gespeicherte Ergebnisartefakte fuer die oeffentliche Version liegen getrennt vom
 `experiments/out*`; fuer neue Veroeffentlichungsartefakte kann `--out-dir` auf einen
 separaten Ordner gesetzt und das Ergebnis anschliessend nach `results/` kopiert werden.
 
-Die empfohlene Submission nutzt bewusst **Punktwetter-Forecasts als Chronos-Input**,
-nicht die ICON-D2-Ensemble-Wetterdaten. Als Output reichen wir weiterhin alle drei
-Energy-Arena-Formate ein: `point`, `quantile` und `ensemble`.
+G3_C5 nutzt bewusst **Punktwetter-Forecasts als Chronos-Input**, nicht die
+ICON-D2-Ensemble-Wetterdaten. G1_C1 arbeitet ausschliesslich mit der Lastreihe.
+Beide Worker reichen die drei Energy-Arena-Formate `point`, `quantile` und
+`ensemble` aus derselben nativen Chronos-Quantilverteilung ein.
 
 Finetuning nutzt Chronos-2-LoRA. Auf ROCm kann `FT_PAD_COVARIATES=2` fuer einzelne
 Covariate-Anzahlen noetig sein; das fuegt informationsfreie Null-Covariaten hinzu und
 umgeht bekannte HIP-Backward-Crashes.
 
-**Kernbefund:** Chronos-2 schlaegt ENTSO-E probabilistisch klar. Fuer Submission ist
-`G1_C5` der Default-Champion (DE-LU-Gesamtmodell mit Punktwetter, past-only
-Preis/Solar/Wind und Kalenderfeatures). `G1_C1` bleibt der robuste univariate Fallback,
-falls Wetter- oder Aux-Daten nicht aktuell sind.
+**Produktionsauswahl:** `G3_C5` ist die multivariate Paper-Konfiguration mit dem
+groessten beobachteten Fine-Tuning-Nutzen. `G1_C1` laeuft getrennt als strikt
+univariate Referenz, die keine Wetter- oder Auxiliary-Daten benoetigt.
 
 ---
 

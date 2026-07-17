@@ -23,6 +23,20 @@ WEATHER_VARS = config.WEATHER_VARS
 AUX_NAMES = ("price", "solar", "wind")
 
 
+def clear_caches() -> None:
+    """Verwirft alle Datei-Lese-Caches.
+
+    Live-Worker laufen ueber viele Loader-Refreshes hinweg. Ohne explizites
+    Leeren wuerden sie trotz atomar aktualisierter CSV-Dateien weiterhin die beim
+    ersten Forecast gelesenen Reihen verwenden.
+    """
+    target.cache_clear()
+    benchmark.cache_clear()
+    aux.cache_clear()
+    weather.cache_clear()
+    _read_cell.cache_clear()
+
+
 def _read_concat(paths, valcol, rename):
     parts = []
     for p in paths:

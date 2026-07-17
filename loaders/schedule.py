@@ -24,8 +24,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-import traceback
-from contextlib import contextmanager
 
 from . import aggregate, config, loads, market, weather
 
@@ -34,8 +32,10 @@ def _safe(fn, name: str) -> None:
     try:
         fn()
         print(f"[ok] {name}", file=sys.stderr)
-    except Exception:
-        print(f"[FEHLER] {name}:\n{traceback.format_exc()}", file=sys.stderr)
+    except Exception as exc:
+        # ENTSO-E-Fehler koennen die Request-URL inklusive Token enthalten.
+        # Deshalb nur den Exception-Typ, niemals den fremden Nachrichtentext loggen.
+        print(f"[FEHLER] {name}: {type(exc).__name__}", file=sys.stderr)
 
 
 def _token() -> str:
@@ -45,17 +45,6 @@ def _token() -> str:
     return token
 
 
-@contextmanager
-def _clean_argv():
-    """Call module-level CLIs from the scheduler without leaking scheduler flags."""
-    old = sys.argv[:]
-    try:
-        sys.argv = [old[0]]
-        yield
-    finally:
-        sys.argv = old
-
-
 # --- Jobs -------------------------------------------------------------------
 
 def job_loads_refresh() -> None:
@@ -63,8 +52,14 @@ def job_loads_refresh() -> None:
 
 
 def job_market() -> None:
-    with _clean_argv():
-        market.main()
+    from entsoe import EntsoePandasClient
+
+    client = EntsoePandasClient(api_key=_token())
+    # Eine ausgefallene Quelle darf die beiden anderen nicht ueberspringen.
+    _safe(lambda: market.build_price(client), "market.price")
+    _safe(market.build_solar, "market.solar")
+    _safe(market.build_wind, "market.wind")
+    _safe(market.build_residual, "market.residual")
 
 
 def job_weather_daily() -> None:

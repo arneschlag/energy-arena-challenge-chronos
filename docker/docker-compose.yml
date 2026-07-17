@@ -1,55 +1,114 @@
-# Vollautomatische Day-ahead-Pipeline. Ein Profil je GPU-Hersteller.
+# AMD/ROCm-Produktionsaufteilung: ein Data-Writer und zwei Forecast-Worker.
 #
-#   NVIDIA:  docker compose --profile nvidia up -d --build
-#   AMD:     docker compose --profile amd    up -d --build
+#   cp docker/env/data.local.env.example docker/env/data.local.env
+#   cp docker/env/g1-c1.local.env.example docker/env/g1-c1.local.env
+#   cp docker/env/g3-c5.local.env.example docker/env/g3-c5.local.env
+#   # Secrets nur in die drei ignorierten *.local.env-Dateien eintragen.
+#   docker compose -f docker/docker-compose.yml up -d --build
 #
-# Voraussetzung: eine .env im Repo-Root (siehe .env.example) mit ENTSOE_API_KEY
-# (Pflicht) und optional ARENA_API_KEY + SUBMIT_ENABLED=true fuer echte Abgabe.
-# Daten (data/) und der HuggingFace-Cache werden als Volumes persistiert.
+# Die Worker mounten data/ read-only. Nur ea-data-summary darf Loader starten und
+# in den gemeinsamen Datenbestand schreiben. Beide GPU-Worker teilen sich einen
+# flock, sodass niemals zwei Chronos-Laeufe gleichzeitig die AMD-GPU verwenden.
 
-x-common: &common
+name: energy-arena-chronos
+
+x-amd-image: &amd-image
+  image: energy-arena-chronos:amd
   build:
     context: ..
     dockerfile: docker/Dockerfile
-  env_file: [../.env]
+    args:
+      BASE: rocm/pytorch:latest
+      REPO_COMMIT: ${REPO_COMMIT:-unknown}
   working_dir: /app
-  volumes:
-    - ../data:/app/data
-    - hf-cache:/root/.cache/huggingface
   restart: unless-stopped
+  init: true
+
+x-amd-worker: &amd-worker
+  <<: *amd-image
+  depends_on:
+    ea-data-summary:
+      condition: service_started
+  devices:
+    - /dev/kfd
+    - /dev/dri
+  group_add: ["video"]
+  security_opt: ["seccomp:unconfined"]
+  read_only: true
+  tmpfs:
+    - /tmp:exec,mode=1777
 
 services:
-  pipeline-nvidia:
-    <<: *common
-    profiles: ["nvidia"]
-    image: energy-pipeline:nvidia
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      args:
-        BASE: pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+  ea-data-summary:
+    <<: *amd-image
+    container_name: ea-data-summary
+    command: ["data-summary"]
+    env_file:
+      - ./env/data.env
+      - path: ./env/data.local.env
+        required: false
+    environment:
+      SERVICE_ROLE: data-summary
+      APP_BASE: /app/state
+      LOCK_DIR: /locks
+    volumes:
+      - ../data:/app/data
+      - data-state:/app/state
+      - g1-c1-state:/state/g1:ro
+      - g3-c5-state:/state/g3:ro
+      - gpu-lock:/locks
 
-  pipeline-amd:
-    <<: *common
-    profiles: ["amd"]
-    image: energy-pipeline:amd
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      args:
-        BASE: rocm/pytorch:latest
-    devices:
-      - /dev/kfd
-      - /dev/dri
-    group_add: ["video"]
-    security_opt: ["seccomp:unconfined"]
+  ea-g1-c1:
+    <<: *amd-worker
+    container_name: ea-g1-c1
+    command: ["worker"]
+    env_file:
+      - ./env/g1-c1.env
+      - path: ./env/g1-c1.local.env
+        required: false
+    environment:
+      SERVICE_ROLE: worker
+      WORKER_KIND: G1_C1
+      PROD_CONFIG: G1_C1
+      MODEL_LABEL: "amazon/chronos-2 (120M) — G1_C1 univariat"
+      APP_BASE: /app/state
+      ADAPTER_DIR: /app/adapters
+      LOCK_DIR: /locks
+    volumes:
+      - ../data:/app/data:ro
+      - g1-c1-state:/app/state
+      - g1-c1-adapters:/app/adapters
+      - hf-cache:/root/.cache/huggingface
+      - gpu-lock:/locks
+
+  ea-g3-c5:
+    <<: *amd-worker
+    container_name: ea-g3-c5
+    command: ["worker"]
+    env_file:
+      - ./env/g3-c5.env
+      - path: ./env/g3-c5.local.env
+        required: false
+    environment:
+      SERVICE_ROLE: worker
+      WORKER_KIND: G3_C5
+      PROD_CONFIG: G3_C5
+      MODEL_LABEL: "amazon/chronos-2 (120M) — G3_C5 Group Attention + C5"
+      APP_BASE: /app/state
+      ADAPTER_DIR: /app/adapters
+      LOCK_DIR: /locks
+    volumes:
+      - ../data:/app/data:ro
+      - g3-c5-state:/app/state
+      - g3-c5-adapters:/app/adapters
+      - hf-cache:/root/.cache/huggingface
+      - gpu-lock:/locks
 
 volumes:
+  data-state: {}
+  g1-c1-state: {}
+  g1-c1-adapters: {}
+  g3-c5-state: {}
+  g3-c5-adapters: {}
   hf-cache: {}
+  gpu-lock: {}

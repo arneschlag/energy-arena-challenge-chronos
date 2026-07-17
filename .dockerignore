@@ -6,6 +6,13 @@ experiments/out*
 __pycache__
 *.pyc
 .env
+.env.*
+docker/env/*.local.env
+docker/env/*.local.env.*
+*.pem
+*.key
+adapters
+state
 *.tar.zst
 scripts/
 *.log

@@ -1,4 +1,11 @@
 .env
+.env.*
+!.env.example
+docker/env/*.local.env
+*.pem
+*.key
+adapters/
+state/
 .cache*
 data/
 data-snapshot-*.tar.zst

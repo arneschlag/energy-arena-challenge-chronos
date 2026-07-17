@@ -96,7 +96,7 @@ def _fetch_smard(zone, filter_ids, start, end) -> pd.Series:
 def _save(series: pd.Series, name: str, area: str) -> None:
     out = series.dropna().reset_index()
     out.columns = ["date", name]
-    out.to_csv(_feat_path(name, area), index=False)
+    config.atomic_to_csv(out, _feat_path(name, area), index=False)
     print(f"  [{area}] {name}: {len(out)} Zeilen", file=sys.stderr)
 
 

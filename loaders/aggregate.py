@@ -88,7 +88,7 @@ def aggregate_point(methods=METHODS) -> None:
             if df is None:
                 print(f"  [{method}/{area}] keine Punktdaten", file=sys.stderr)
                 continue
-            df.reset_index().to_csv(out_dir / f"{area}.csv", index=False)
+            config.atomic_to_csv(df.reset_index(), out_dir / f"{area}.csv", index=False)
             print(f"  [{method}/{area}] {len(df)} Zeilen -> {out_dir.name}/{area}.csv",
                   file=sys.stderr)
 
@@ -132,7 +132,7 @@ def aggregate_ensemble(methods=METHODS) -> None:
             df = _aggregate_ens_area(area, method, g)
             if df is None:
                 continue
-            df.to_csv(out_dir / f"ens_{area}.csv", index=False)
+            config.atomic_to_csv(df, out_dir / f"ens_{area}.csv", index=False)
             print(f"  [{method}/{area}] Ensemble {len(df)} Zeilen "
                   f"({df.member.nunique()} Member) -> ens_{area}.csv", file=sys.stderr)
 
@@ -167,7 +167,7 @@ def analyse_diff() -> pd.DataFrame:
         print("  keine aggregierten Reihen fuer die Diff-Analyse gefunden", file=sys.stderr)
         return res
     out = config.DATA_ANALYSIS / "weather_agg_diff.csv"
-    res.to_csv(out, index=False)
+    config.atomic_to_csv(res, out, index=False)
     print(f"\nDiff pop vs. centroid -> {out}")
     print(res.to_string(index=False,
                         formatters={c: "{:.4f}".format for c in

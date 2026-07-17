@@ -102,7 +102,7 @@ def download_point(years: list[int]) -> None:
             df = _point_response_to_df(resp)
             df.insert(0, "tso", config.ZONE_LABEL.get(cell.zone, ""))
             df.insert(0, "h3_index", cell.h3_index)
-            df.to_csv(out, index=False)
+            config.atomic_to_csv(df, out, index=False)
             print(f"  [{done}/{total}] {cell.h3_index} {year} -> {out.name} ({len(df)})",
                   file=sys.stderr)
             if not getattr(resp, "_from_cache", False):
@@ -126,7 +126,7 @@ def _merge_point_csv(h3_index: str, tso: str, df: pd.DataFrame) -> None:
             old["date"] = pd.to_datetime(old["date"], utc=True)
             gy = pd.concat([old, gy], ignore_index=True)
         gy = gy.drop_duplicates("date", keep="last").sort_values("date")
-        gy[cols].to_csv(path, index=False)
+        config.atomic_to_csv(gy[cols], path, index=False)
 
 
 def refresh_recent(past_days: int = 7, forecast_days: int = 4, chunk: int = 100) -> None:
@@ -220,7 +220,10 @@ def download_ensemble(forecast_days: int = 2, chunk: int = 30,
             out_df = pd.concat(frames, ignore_index=True)
             out_df.insert(0, "tso", config.ZONE_LABEL.get(cell.zone, ""))
             out_df.insert(0, "h3_index", cell.h3_index)
-            out_df.to_csv(config.DATA_HIST_ENS / f"{cell.h3_index}_{day}.csv", index=False)
+            config.atomic_to_csv(
+                out_df, config.DATA_HIST_ENS / f"{cell.h3_index}_{day}.csv",
+                index=False,
+            )
             written += 1
         print(f"  Zellen {i + 1}-{min(i + chunk, len(g))}/{len(g)}", file=sys.stderr, flush=True)
         time.sleep(1.0)
