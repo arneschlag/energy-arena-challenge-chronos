@@ -18,7 +18,7 @@ x-amd-image: &amd-image
     context: ..
     dockerfile: docker/Dockerfile
     args:
-      BASE: rocm/pytorch:latest
+      BASE: ${ROCM_BASE_IMAGE:-rocm/pytorch:rocm7.2.3_ubuntu24.04_py3.12_pytorch_release_2.10.0}
       REPO_COMMIT: ${REPO_COMMIT:-unknown}
   working_dir: /app
   restart: unless-stopped
@@ -37,6 +37,7 @@ x-amd-worker: &amd-worker
   read_only: true
   tmpfs:
     - /tmp:exec,mode=1777
+  shm_size: 8gb
 
 services:
   ea-data-summary:

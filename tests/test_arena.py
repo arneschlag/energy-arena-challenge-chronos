@@ -36,6 +36,16 @@ def result(fmt: str, code: int, ok: bool) -> dict:
 
 
 class ArenaRunTest(unittest.TestCase):
+    def test_invalid_submission_format_fails_before_api_access(self):
+        with (
+            patch.object(arena, "PROD_CONFIG", "G1_C1"),
+            patch.object(arena, "SUBMIT_FORMATS", ("point", "samples")),
+            patch.object(arena, "open_challenges") as opened,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "SUBMIT_FORMATS"):
+                arena.run_if_due()
+        opened.assert_not_called()
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         root = Path(self.tmp.name)

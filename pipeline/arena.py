@@ -219,6 +219,12 @@ def submit(target_start: str, formats, challenges: dict) -> dict:
 def run_if_due() -> str:
     if PROD_CONFIG not in {"G1_C1", "G3_C5"}:
         raise RuntimeError(f"Live-Worker verweigert PROD_CONFIG={PROD_CONFIG!r}")
+    unknown_formats = sorted(set(SUBMIT_FORMATS) - set(DELU_CHALLENGES))
+    if unknown_formats or not SUBMIT_FORMATS:
+        raise RuntimeError(
+            "SUBMIT_FORMATS ist ungueltig; unbekannt/leer: "
+            f"{unknown_formats or list(SUBMIT_FORMATS)}"
+        )
     if not 0 < SUBMIT_LEAD_MINUTES <= 24 * 60:
         raise RuntimeError("SUBMIT_LEAD_MINUTES muss zwischen 1 und 1440 liegen")
     try:

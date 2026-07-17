@@ -4,7 +4,9 @@
 #
 #   NVIDIA (Default):  docker build -f docker/Dockerfile -t energy-pipeline .
 #   AMD ROCm:          docker build -f docker/Dockerfile \
-#                        --build-arg BASE=rocm/pytorch:latest -t energy-pipeline .
+#                        --build-arg \
+#                        BASE=rocm/pytorch:rocm7.2.3_ubuntu24.04_py3.12_pytorch_release_2.10.0 \
+#                        -t energy-pipeline .
 ARG BASE=pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime
 FROM ${BASE}
 

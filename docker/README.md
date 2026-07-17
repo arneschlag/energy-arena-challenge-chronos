@@ -13,6 +13,10 @@ Datenservice nimmt fuer Updates einen exklusiven Daten-Lock; Forecasts halten
 waehrend des Laufs einen gemeinsamen Leselock. Ein Worker fuehrt beim Start
 absichtlich keine Submission aus.
 
+Die Compose-Datei pinnt die getestete ROCm-7.2.3/PyTorch-2.10-Basis. Auf einem
+Host mit einem aequivalenten lokalen Basistag kann dieser explizit gesetzt
+werden, beispielsweise `ROCM_BASE_IMAGE=chronos-rocm`.
+
 ## Konfiguration
 
 ```bash
