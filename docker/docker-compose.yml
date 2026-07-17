@@ -48,6 +48,7 @@ services:
       - ./env/data.env
       - path: ./env/data.local.env
         required: false
+        format: raw
     environment:
       SERVICE_ROLE: data-summary
       APP_BASE: /app/state
@@ -67,6 +68,7 @@ services:
       - ./env/g1-c1.env
       - path: ./env/g1-c1.local.env
         required: false
+        format: raw
     environment:
       SERVICE_ROLE: worker
       WORKER_KIND: G1_C1
@@ -90,6 +92,7 @@ services:
       - ./env/g3-c5.env
       - path: ./env/g3-c5.local.env
         required: false
+        format: raw
     environment:
       SERVICE_ROLE: worker
       WORKER_KIND: G3_C5
