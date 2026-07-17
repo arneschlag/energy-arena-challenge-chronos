@@ -37,15 +37,24 @@ class CalendarFeatureTests(unittest.TestCase):
 
 
 class DeliveryWindowTests(unittest.TestCase):
-    def _assert_geometry(self, target_start: str, expected_cutoff: str) -> pd.DatetimeIndex:
+    def _assert_geometry(
+        self,
+        target_start: str,
+        expected_cutoff: str,
+        expected_delivery_steps: int = 96,
+        expected_model_steps: int = 155,
+    ) -> pd.DatetimeIndex:
         cutoff, future, delivery = forecast._delivery_window(target_start)
         self.assertEqual(cutoff, pd.Timestamp(expected_cutoff))
-        self.assertEqual(len(future), 155)
-        self.assertEqual(int(delivery.sum()), 96)
+        self.assertEqual(len(future), expected_model_steps)
+        self.assertEqual(int(delivery.sum()), expected_delivery_steps)
         delivery_index = future[delivery]
         target_utc = pd.Timestamp(target_start).tz_convert("UTC")
         self.assertEqual(delivery_index[0], target_utc)
-        self.assertEqual(delivery_index[-1], target_utc + pd.Timedelta(minutes=15 * 95))
+        self.assertEqual(
+            delivery_index[-1],
+            target_utc + pd.Timedelta(minutes=15 * (expected_delivery_steps - 1)),
+        )
         deltas = delivery_index.to_series().diff().dropna()
         self.assertTrue((deltas == pd.Timedelta("15min")).all())
         return delivery_index
@@ -62,27 +71,40 @@ class DeliveryWindowTests(unittest.TestCase):
             "2026-01-17T08:00:00+00:00",
         )
 
-    def test_spring_dst_keeps_96_real_arena_steps(self):
+    def test_spring_dst_has_92_arena_steps(self):
         delivery = self._assert_geometry(
             "2026-03-29T00:00:00+01:00",
             "2026-03-28T08:00:00+00:00",
+            expected_delivery_steps=92,
+            expected_model_steps=151,
         )
-        # 96 reale Schritte reichen wegen der fehlenden lokalen Stunde bis 00:45.
         self.assertEqual(
             delivery[-1].tz_convert(forecast.ARENA_TZ),
-            pd.Timestamp("2026-03-30T00:45:00+02:00"),
+            pd.Timestamp("2026-03-29T23:45:00+02:00"),
         )
 
-    def test_autumn_dst_keeps_96_real_arena_steps(self):
+    def test_autumn_dst_has_100_arena_steps(self):
         delivery = self._assert_geometry(
             "2026-10-25T00:00:00+02:00",
             "2026-10-24T07:00:00+00:00",
+            expected_delivery_steps=100,
+            expected_model_steps=159,
         )
-        # Die wiederholte lokale Stunde laesst den Horizont um 22:45 enden.
         self.assertEqual(
             delivery[-1].tz_convert(forecast.ARENA_TZ),
-            pd.Timestamp("2026-10-25T22:45:00+01:00"),
+            pd.Timestamp("2026-10-25T23:45:00+01:00"),
         )
+
+    def test_days_adjacent_to_dst_changes_remain_96_steps(self):
+        cases = (
+            ("2026-03-28T00:00:00+01:00", "2026-03-27T08:00:00Z"),
+            ("2026-03-30T00:00:00+02:00", "2026-03-29T07:00:00Z"),
+            ("2026-10-24T00:00:00+02:00", "2026-10-23T07:00:00Z"),
+            ("2026-10-26T00:00:00+01:00", "2026-10-25T08:00:00Z"),
+        )
+        for target_start, expected_cutoff in cases:
+            with self.subTest(target_start=target_start):
+                self._assert_geometry(target_start, expected_cutoff)
 
     def test_naive_or_non_midnight_target_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Zeitzone"):
@@ -170,6 +192,32 @@ class LiveInputTests(unittest.TestCase):
         clear.assert_called_once_with()
         self.assertEqual(result["de_lu"].shape, (21, 96))
         self.assertEqual(len(timestamps), 96)
+
+    def test_spring_dst_forecast_uses_151_model_steps_and_returns_92_values(self):
+        prediction = np.zeros((1, 21, 151), dtype=np.float32)
+        with (
+            mock.patch.object(forecast.data, "clear_caches"),
+            mock.patch.object(forecast, "_validate_live_inputs"),
+            mock.patch.object(
+                forecast.model,
+                "area_frame",
+                return_value=(pd.DataFrame(), ["target"], [], []),
+            ),
+            mock.patch.object(
+                forecast.model, "build_task", return_value={"target": []}
+            ),
+            mock.patch.object(
+                forecast.model, "predict", return_value=[prediction]
+            ) as predict,
+        ):
+            result, timestamps = forecast.zone_quantiles(
+                "G1_C1", "2026-03-29T00:00:00+01:00"
+            )
+
+        predict.assert_called_once()
+        self.assertEqual(predict.call_args.args[1], 151)
+        self.assertEqual(result["de_lu"].shape, (21, 92))
+        self.assertEqual(len(timestamps), 92)
 
     def test_g3_c5_requires_fresh_german_aux(self):
         cfg = configs.get("G3_C5")

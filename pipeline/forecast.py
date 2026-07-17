@@ -2,8 +2,8 @@
 
 Nutzt dieselbe Chronos-2-Task-Logik wie die Experimente (experiments.model), aber
 fuer EIN zukuenftiges Liefertag-Fenster. Liefert je Gebiet die 21 nativen
-Quantilkurven der 96 Arena-Liefer-Steps. DE-LU wird komonoton ueber die Gebiete
-aggregiert; Arena-Quantile und deterministische Ensemblepfade werden durch direkte
+Quantilkurven der 92, 96 oder 100 Arena-Liefer-Steps. DE-LU wird komonoton ueber
+die Gebiete aggregiert; Arena-Quantile und deterministische Ensemblepfade werden durch direkte
 Auswertung der resultierenden Quantilfunktion erzeugt.
 
 Produktions-Config via env ``PROD_CONFIG``. Die beiden Worker setzen explizit
@@ -41,14 +41,14 @@ def _delivery_window(delivery_date=None, gate_hour: int = 9):
 
     `delivery_date` darf ein Arena-`target_start` mit Zeitzone sein, z.B.
     ``2026-07-16T00:00:00+02:00``. Der Cutoff liegt um 09:00 Uhr Ortszeit am
-    lokalen Vortag. Bewertet/gesendet werden gemaess Arena-Vertrag stets 96 reale,
-    aufeinanderfolgende Viertelstunden ab ``target_start``.
+    lokalen Vortag. Bewertet/gesendet wird der gesamte lokale Kalendertag in
+    Europe/Berlin: 92 Viertelstunden beim Wechsel auf Sommerzeit, 96 an
+    regulaeren Tagen und 100 beim Wechsel auf Winterzeit.
 
-    Dadurch umfasst der Forecast an regulaeren Tagen 155 Schritte. Auch an der
-    Sommer-/Winterzeitumstellung bleiben es 96 Arena-Schritte; der letzte
-    Zeitstempel kann dann in Europe/Berlin vom civilen 23:45-Uhr-Tagesende
-    abweichen. Intern sind alle Indizes UTC, damit doppelte oder nicht existente
-    lokale Uhrzeiten nicht entstehen.
+    Dadurch umfasst der Modellhorizont ab 09:15 Uhr des lokalen Vortags 151,
+    155 bzw. 159 Schritte. Intern sind alle Indizes UTC, damit die nicht
+    existente Stunde im Fruehjahr uebersprungen und die doppelte Stunde im
+    Herbst mit zwei unterschiedlichen Zeitstempeln abgebildet wird.
     """
     if not 0 <= gate_hour <= 23:
         raise ValueError(f"gate_hour muss zwischen 0 und 23 liegen, nicht {gate_hour}")
@@ -69,28 +69,42 @@ def _delivery_window(delivery_date=None, gate_hour: int = 9):
         )
 
     previous_local_date = target_local.date() - pd.Timedelta(days=1)
-    cutoff_local = pd.Timestamp(previous_local_date, tz=ARENA_TZ) + pd.Timedelta(
-        hours=gate_hour
-    )
+    # Zuerst die lokale Wanduhrzeit bilden und erst danach lokalisieren. Wenn
+    # man zu einer bereits lokalisierten Mitternacht neun absolute Stunden
+    # addiert, verschiebt eine DST-Umstellung am Cutoff-Tag das Gate auf 08:00
+    # bzw. 10:00 Uhr Ortszeit.
+    cutoff_local = (
+        pd.Timestamp(previous_local_date) + pd.Timedelta(hours=gate_hour)
+    ).tz_localize(ARENA_TZ)
     cutoff = cutoff_local.tz_convert("UTC")
     target_start = target_local.tz_convert("UTC")
 
-    # Der Arena-Horizont ist eine feste Folge von 96 Viertelstunden ab dem durch
-    # target_start bezeichneten Instant, auch an DST-Uebergangstagen.
-    delivery_idx = pd.date_range(target_start, periods=STEPS, freq=FREQ)
+    # Die exklusive Grenze ist der naechste *lokale* Tagesbeginn. Ein fixes
+    # ``target_start + 24h`` waere an den beiden DST-Uebergaengen falsch.
+    next_local_date = target_local.date() + pd.Timedelta(days=1)
+    delivery_end = pd.Timestamp(next_local_date, tz=ARENA_TZ).tz_convert("UTC")
+    delivery_idx = pd.date_range(
+        target_start, delivery_end, freq=FREQ, inclusive="left"
+    )
+    delivery_steps = len(delivery_idx)
+    if delivery_steps not in {92, 96, 100}:
+        raise RuntimeError(
+            f"ungueltige Laenge des lokalen Arena-Liefertags: {delivery_steps} Schritte"
+        )
     fut_idx = pd.date_range(cutoff + pd.Timedelta(FREQ), delivery_idx[-1], freq=FREQ)
     delivery_mask = fut_idx.isin(delivery_idx)
-    if int(delivery_mask.sum()) != STEPS:
+    if int(delivery_mask.sum()) != delivery_steps:
         raise RuntimeError(
-            f"ungueltige Arena-Geometrie: {int(delivery_mask.sum())} statt {STEPS} Liefer-Schritte"
+            "ungueltige Arena-Geometrie: "
+            f"{int(delivery_mask.sum())} statt {delivery_steps} Liefer-Schritte"
         )
     return cutoff, fut_idx, delivery_mask
 
 
 def zone_quantiles(cfg_name: str = PROD_CONFIG, delivery_date=None):
-    """Native Lastquantile je Gebiet plus die 96 Liefer-Zeitstempel.
+    """Native Lastquantile je Gebiet plus die Liefer-Zeitstempel.
 
-    Rueckgabe je Gebiet: ``(21, 96)`` in der Reihenfolge von
+    Rueckgabe je Gebiet: ``(21, 92|96|100)`` in der Reihenfolge von
     :data:`CHRONOS_QUANTILE_LEVELS`. Die erste Achse ist keine Sample-Achse.
     """
     # Der Prozess ist langlebig, die Loader aktualisieren ihre Dateien jedoch
@@ -243,7 +257,7 @@ def _interpolate_quantile_curves(values: np.ndarray,
         raise ValueError("Quantillevels muessen ein endlicher eindimensionaler Vektor sein")
     if ((requested < 0.0) | (requested > 1.0)).any():
         raise ValueError("Quantillevels muessen im Intervall [0, 1] liegen")
-    # np.interp arbeitet eindimensional; die Schleife laeuft nur ueber 96 Steps
+    # np.interp arbeitet eindimensional; die Schleife laeuft nur ueber den Liefertag
     # und macht die gemeinte Quantilachse unmissverstaendlich.
     return np.stack([
         np.interp(requested, CHRONOS_QUANTILE_LEVELS, arr[:, t])
@@ -269,7 +283,7 @@ def delu_quantiles(zquantiles: Mapping[str, np.ndarray],
 
     Fuer G1 ist dies direkt die Quantilfunktion des Gesamtmodells. Bei G3 wird
     dasselbe Level in allen gemeinsam modellierten Regionen ausgewertet und
-    addiert. Rueckgabe: ``(n_levels, 96)``.
+    addiert. Rueckgabe: ``(n_levels, horizon)``.
     """
     _validate_zone_quantiles(zquantiles)
     return np.sum(
@@ -284,7 +298,7 @@ def delu_ensemble(zquantiles: Mapping[str, np.ndarray], n: int = 100) -> np.ndar
     Die Midpoint-Levels ``(i + 0.5) / n`` approximieren eine Gleichverteilung ohne
     Zufallszahl oder Bootstrap. Dasselbe ``u`` gilt je Pfad fuer alle Zeitpunkte
     und, insbesondere fuer G3, fuer alle Regionen (komonotone Aggregation).
-    Rueckgabe: ``(n, 96)``.
+    Rueckgabe: ``(n, horizon)``.
     """
     if isinstance(n, bool) or not isinstance(n, (int, np.integer)) or n <= 0:
         raise ValueError(f"n muss eine positive Ganzzahl sein, nicht {n!r}")
@@ -297,5 +311,5 @@ def delu_ensemble(zquantiles: Mapping[str, np.ndarray], n: int = 100) -> np.ndar
 
 
 def delu_point(zquantiles: Mapping[str, np.ndarray]) -> np.ndarray:
-    """Punktprognose = Summe der Zonen-Mediane -> (96,)."""
+    """Punktprognose = Summe der Zonen-Mediane -> (horizon,)."""
     return delu_quantiles(zquantiles, [0.5])[0]
